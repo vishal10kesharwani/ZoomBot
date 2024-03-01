@@ -73,6 +73,13 @@ class Services {
     var dbClient = await db;
     Future<int> res =
         dbClient.delete("Schedule", where: '"id" = ?', whereArgs: [id]);
+    print("Record deleted Successfully");
+    return res;
+  }
+
+  Future<Future<int>> deleteAllSchedule() async {
+    var dbClient = await db;
+    Future<int> res = dbClient.delete("Schedule");
     return res;
   }
 

@@ -334,7 +334,13 @@ class DynamicList extends State<NewSchedule> {
                                 child: RadioListTile(
                                   value: 0,
                                   groupValue: _groupValue,
-                                  title: Text("D1"),
+                                  title: Text(
+                                    "D1",
+                                    style: TextStyle(
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20),
+                                  ),
                                   onChanged: (newValue) =>
                                       setState(() => _groupValue = newValue!),
                                   activeColor: Colors.red,
@@ -346,7 +352,13 @@ class DynamicList extends State<NewSchedule> {
                                 child: RadioListTile(
                                   value: 1,
                                   groupValue: _groupValue,
-                                  title: Text("D2"),
+                                  title: Text(
+                                    "D2",
+                                    style: TextStyle(
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20),
+                                  ),
                                   onChanged: (newValue) =>
                                       setState(() => _groupValue = newValue!),
                                   activeColor: Colors.red,
@@ -360,18 +372,42 @@ class DynamicList extends State<NewSchedule> {
                           ),
                           Row(
                             children: [
-                              Switch(
-                                value: light0,
-                                onChanged: (bool value) {
-                                  setState(() {
-                                    light0 = value;
-                                  });
-                                },
-                                activeColor: Colors.white,
-                                activeTrackColor: primary,
-                                inactiveThumbColor: Colors.black,
-                                inactiveTrackColor: primary,
+                              Transform.scale(
+                                scale: 1.2,
+                                child: Switch(
+                                  value: light0,
+                                  onChanged: (bool value) {
+                                    setState(() {
+                                      light0 = value;
+                                    });
+                                  },
+                                  activeColor: Colors.white,
+                                  activeTrackColor: primary,
+                                  inactiveThumbColor: Colors.black,
+                                  inactiveTrackColor: primary,
+                                ),
                               ),
+                              SizedBox(width: 10),
+                              light0
+                                  ? Tooltip(
+                                      showDuration: Duration(milliseconds: 200),
+                                      message: 'On',
+                                      child: Text(
+                                        "ON",
+                                        style: TextStyle(
+                                            color: Colors.green,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                    )
+                                  : Tooltip(
+                                      message: 'Off',
+                                      child: Text(
+                                        "OFF",
+                                        style: TextStyle(
+                                            color: Colors.red,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
                               Spacer(),
                               ElevatedButton(
                                 onPressed: () {

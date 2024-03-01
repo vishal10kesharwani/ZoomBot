@@ -51,9 +51,9 @@ class _DashboardState extends State<Dashboard> {
 
   void deleteAllSchedules() async {
     Services service = Services();
-    await service.getAllSchedule().then((value) {
+    await service.deleteAllSchedule().then((value) {
       setState(() {
-        schedules = value;
+        getSchedules();
         print("Records:$schedules");
       });
     });
@@ -255,47 +255,62 @@ class _DashboardState extends State<Dashboard> {
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 30.0, left: 80, right: 80),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            color: primary.withOpacity(0.05),
-            border: Border.all(color: primary, width: 0.2),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                FloatingActionButton(
-                  shape: const CircleBorder(),
-                  backgroundColor: primary,
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            NewSchedule(device: widget.device),
-                      ),
-                    ).then((value) {
-                      setState(() {
-                        isUploaded = false;
-                        getSchedules();
+        child: GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => NewSchedule(device: widget.device),
+              ),
+            ).then((value) {
+              setState(() {
+                isUploaded = false;
+                getSchedules();
+              });
+            });
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              color: primary.withOpacity(0.05),
+              border: Border.all(color: primary, width: 0.2),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FloatingActionButton(
+                    shape: const CircleBorder(),
+                    backgroundColor: primary,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              NewSchedule(device: widget.device),
+                        ),
+                      ).then((value) {
+                        setState(() {
+                          isUploaded = false;
+                          getSchedules();
+                        });
                       });
-                    });
-                  },
-                  child: const Icon(
-                    Icons.add,
-                    color: Colors.white,
+                    },
+                    child: const Icon(
+                      Icons.add,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
-                SizedBox(
-                  width: 10,
-                ),
-                Text(
-                  "Add Schedule",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                ),
-              ],
+                  SizedBox(
+                    width: 10,
+                  ),
+                  Text(
+                    "Add Schedule",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -347,8 +362,7 @@ class _DashboardState extends State<Dashboard> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                widget.device.bondState ==
-                                        BluetoothBondState.bonded
+                                widget.device.isConnected
                                     ? Icons.bluetooth_connected
                                     : Icons.bluetooth_disabled,
                                 color: widget.device.bondState ==
@@ -446,10 +460,18 @@ class _DashboardState extends State<Dashboard> {
                             showDialog<String>(
                               context: context,
                               builder: (BuildContext context) => AlertDialog(
+                                icon: Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 50,
+                                ),
                                 title: const Text(
-                                    'Are you sure you want to delete all schedules?'),
-                                content:
-                                    const Text('This action cannot be undone.'),
+                                  'Are you sure you want to delete all schedules?',
+                                  style: TextStyle(fontSize: 20),
+                                ),
+                                content: const Text(
+                                  'This action cannot be undone.',
+                                  textAlign: TextAlign.center,
+                                ),
                                 actions: <Widget>[
                                   TextButton(
                                     onPressed: () =>
@@ -458,6 +480,7 @@ class _DashboardState extends State<Dashboard> {
                                   ),
                                   TextButton(
                                     onPressed: () {
+                                      deleteAllSchedules();
                                       Navigator.pop(context, 'Confirm');
                                     },
                                     child: const Text('Confirm'),
@@ -670,7 +693,9 @@ class ContainerWidget extends StatelessWidget {
                 onPressed: () => showDialog<String>(
                       context: context,
                       builder: (BuildContext context) => AlertDialog(
-                        title: const Text('Are you sure you want to delete?'),
+                        title: const Text(
+                          'Are you sure you want to delete?',
+                        ),
                         content: const Text('This action cannot be undone.'),
                         actions: <Widget>[
                           TextButton(
