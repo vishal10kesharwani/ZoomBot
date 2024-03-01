@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bluetooth/screens/all_schedules.dart';
 import 'package:bluetooth/utils/string_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
@@ -277,15 +278,15 @@ class _HomePageState extends State<HomePage> {
                                                 .removeDeviceBondWithAddress(
                                                     address);
                                             print(
-                                                'Unbonding from ${device.address} has succed');
+                                                'Unpaired from ${device.address} has succed');
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(SnackBar(
                                                     content: Center(
                                                         child: Text(
-                                                            "Device Unbonded Successfully"))));
+                                                            "Device Un-Paired Successfully"))));
                                           } else {
                                             print(
-                                                'Bonding with ${device.address}...');
+                                                'Pairing with ${device.address}...');
                                             bonded =
                                                 (await FlutterBluetoothSerial
                                                         .instance
@@ -293,12 +294,12 @@ class _HomePageState extends State<HomePage> {
                                                             address)) ??
                                                     false;
                                             print(
-                                                'Bonding with ${device.address} has ${bonded ? 'succed' : 'failed'}.');
+                                                'Pairing with ${device.address} has ${bonded ? 'succed' : 'failed'}.');
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(SnackBar(
                                                     content: Center(
                                                         child: Text(
-                                                            "Device bonded Successfully"))));
+                                                            "Device Paired Successfully"))));
                                           }
                                           setState(() {
                                             results[results.indexOf(result)] =
@@ -356,12 +357,10 @@ class _HomePageState extends State<HomePage> {
           child: ListView(
             children: <Widget>[
               UserAccountsDrawerHeader(
-                decoration: BoxDecoration(color: ColorConstants.redColor),
-                currentAccountPicture: Center(
-                    child: Icon(Icons.account_circle,
-                        size: 80, color: ColorConstants.whiteColor)),
-                accountName: Text('Bluetooth App'),
-                accountEmail: Text('blu123@gmail.com'),
+                decoration: BoxDecoration(color: primary),
+                currentAccountPicture: SizedBox(),
+                accountName: SizedBox(),
+                accountEmail: SizedBox(),
               ),
               const SizedBox(
                 height: 20,
@@ -379,6 +378,26 @@ class _HomePageState extends State<HomePage> {
                       fontWeight: FontWeight.bold),
                 ),
                 onTap: isDiscovering ? null : _startDiscovery,
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.schedule_sharp,
+                  color: ColorConstants.silverMetallicDark,
+                ),
+                title: Text(
+                  'Active device schedules',
+                  style: TextStyle(
+                      color: ColorConstants.silverMetallic,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+
+                  Navigator.push(context, MaterialPageRoute(builder: (context) {
+                    return ALlSchedules();
+                  }));
+                },
               ),
             ],
           ),

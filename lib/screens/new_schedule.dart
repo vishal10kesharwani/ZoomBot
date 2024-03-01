@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:weekday_selector/weekday_selector.dart';
 
+import '../data/database_helper.dart';
 import '../models/schedule.dart';
-import '../services/schedule_services.dart';
 import '../utils/color_constants.dart';
-import 'dashboard.dart';
 
 int activeStep = 1;
 TimeOfDay _selectedTime = TimeOfDay.now();
@@ -128,7 +127,7 @@ class DynamicList extends State<NewSchedule> {
               _time!,
               selectedDevice = _groupValue == 0 ? "D1" : "D2",
               light0.toString(),
-              "true",
+              "false",
               "1",
               "null",
               "null",
@@ -164,11 +163,7 @@ class DynamicList extends State<NewSchedule> {
           if (res != null) {
             print("Schedule Added");
             _showSnackBar("Schedule Added Successfully");
-            Navigator.pop(context);
-            Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => Dashboard(device: widget.device)));
+            Navigator.pop(context, false);
           }
         }
       }

@@ -86,4 +86,23 @@ class Services {
     );
     print("Schedule Updated");
   }
+
+  Future<void> updateAllSchedule(String deviceName) async {
+    var dbclient = await db;
+
+    // Update schedules with the given device name
+    try {
+      await dbclient.update(
+        'Schedule',
+        {'is_uploaded': "true"},
+        where: 'device_name = ?', // Condition for the device name
+        whereArgs: [deviceName],
+      );
+
+      print("Schedules Updated where device_name is $deviceName");
+    } on Exception catch (e) {
+      print("Error updating schedules: $e");
+      // TODO
+    }
+  }
 }

@@ -2,105 +2,22 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:bluetooth/screens/new_schedule.dart';
-import 'package:bluetooth/services/schedule_services.dart';
 import 'package:bluetooth/utils/color_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:intl/intl.dart';
 
+import '../data/database_helper.dart';
 import '../models/schedule.dart';
 
 var device1;
 var epoch;
+bool isUploaded = false;
+var response;
 
 enum SingingCharacter { D1, D2 }
 
-List<ContainerData> containerDataList = [
-  ContainerData(
-    day: "MON",
-    schedule: "10:00 AM",
-    selectedD1: false, // Set D1 as selected
-    selectedD2: true,
-    alarmStatus: true,
-  ),
-  ContainerData(
-    day: "MON",
-    schedule: "2:00 PM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: true,
-  ),
-  ContainerData(
-    day: "TUE",
-    schedule: "9:00 AM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: true,
-  ),
-  ContainerData(
-    day: "TUE",
-    schedule: "10:30 AM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: true,
-  ),
-  ContainerData(
-    day: "TUE",
-    schedule: "3:00 PM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: false,
-  ),
-  ContainerData(
-    day: "TUE",
-    schedule: "6:00 PM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: true,
-  ),
-  ContainerData(
-    day: "WED",
-    schedule: "8:00 AM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: false,
-  ),
-  ContainerData(
-    day: "WED",
-    schedule: "11:00 AM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: true,
-  ),
-  ContainerData(
-    day: "THU",
-    schedule: "10:30 AM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: true,
-  ),
-  ContainerData(
-    day: "FRI",
-    schedule: "9:00 AM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: true,
-  ),
-  ContainerData(
-    day: "SAT",
-    schedule: "10:00 AM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: true,
-  ),
-  ContainerData(
-    day: "SUN",
-    schedule: "11:00 AM",
-    selectedD1: true, // Set D1 as selected
-    selectedD2: false,
-    alarmStatus: true,
-  ),
-];
+List<ContainerData> containerDataList = [];
 
 String userName = '';
 List<String> receivedUserNames = [];
@@ -132,6 +49,17 @@ class _DashboardState extends State<Dashboard> {
     setState(() {});
   }
 
+  void deleteAllSchedules() async {
+    Services service = Services();
+    await service.getAllSchedule().then((value) {
+      setState(() {
+        schedules = value;
+        print("Records:$schedules");
+      });
+    });
+    setState(() {});
+  }
+
   void connect() async {
     connection = await BluetoothConnection.toAddress(widget.device.address);
     listenForResponse();
@@ -139,32 +67,37 @@ class _DashboardState extends State<Dashboard> {
 
   void sendMessage(String message) {
     connection?.output.add(Uint8List.fromList(utf8.encode(message + "\r\n")));
-  }
-  // void sendMessage1() {
-  //   connection?.output.add(Uint8List.fromList(utf8.encode("!UApoorva,Aman,Chetan")));
-  // }
-
-  void requestUserNames() {
-    // Send the command to request usernames
-    sendMessage('!U*');
-    // print('fgfg');
+    setState(() {
+      isUploaded = true;
+    });
   }
 
   void listenForResponse() {
     connection?.input?.listen((Uint8List data) {
       print('Received raw data: $data');
-      String response = utf8.decode(data);
-      print('Login : listenForResponse : response is $response');
-      // Check if the response starts with "!U" indicating it contains usernames
-      if (response.startsWith('!U')) {
-        // Extract the usernames from the response
-        List<String> receivedUserNames = response.substring(2).split(',');
-        print('Received User Names: $receivedUserNames');
-        setState(() {
-          print('Received User Names: $receivedUserNames');
-        });
-      }
+      setState(() {
+        response = utf8.decode(data);
+      });
+      print(
+          'listenForResponse : response is $response   ${widget.device.name}');
+      updateAll();
+      // Map<String, String> jsonObject = jsonDecode(response);
+      // print(
+      //     'listenForResponse : jsonObject is ${jsonObject['mac_id'].toString() + " " + widget.device.address.toString()} ');
     });
+  }
+
+  void updateAll() async {
+    if (response.contains(widget.device.address)) {
+      setState(() {
+        Services service = Services();
+        service.updateAllSchedule(widget.device.name.toString()).then((_) {
+          print("Schedules updated successfully");
+        }).catchError((error) {
+          print("Error updating schedules: $error");
+        });
+      });
+    }
   }
 
   @override
@@ -175,7 +108,6 @@ class _DashboardState extends State<Dashboard> {
       device1 = widget.device;
       containerDataList = containerDataList;
     });
-    requestUserNames();
     connect();
   }
 
@@ -240,31 +172,25 @@ class _DashboardState extends State<Dashboard> {
 
     // Iterate over containerDataList
     schedules.forEach((scheduleData) {
-      if (scheduleData != null) {
+      if (scheduleData != null &&
+          scheduleData.status != "0" &&
+          scheduleData.device_name == widget.device.name) {
         String time24HourFormat = time12to24Format(scheduleData.time);
-        String key = "${scheduleData.day}-${time24HourFormat}";
+        String key =
+            "${scheduleData.day}-${time24HourFormat}-${scheduleData.pin_no}";
+        print(key);
 
         // Calculate epoch value only if the day matches the current day
         if (day1.toUpperCase() == scheduleData.day) {
           int epoch = calculateEpochFromDateAndTime(now, now);
         }
         // Construct value for the key
-        Map<String, dynamic> value = {};
+        dynamic value = {};
         // Determine which device (D1 or D2) is selected and include alarm status
-        if (scheduleData.pin_no == "D1") {
-          value['D1'] = (scheduleData.action == "true") ? 1 : 0;
-        } else if (scheduleData.pin_no == "D2") {
-          value['D2'] = (scheduleData.action == "true") ? 1 : 0;
-        }
+        value = (scheduleData.action == "true") ? "ON" : "OFF";
 
         // Add key-value pair to scheduler map
-        if (scheduler.containsKey(key)) {
-          // If key already exists, add value to the list
-          scheduler[key]!.add(value);
-        } else {
-          // If key doesn't exist, create a new list with value
-          scheduler[key] = [value];
-        }
+        scheduler[key] = value;
       }
     });
 
@@ -305,6 +231,11 @@ class _DashboardState extends State<Dashboard> {
     return epochSeconds;
   }
 
+  Icon syncIcon = isUploaded
+      ? Icon(Icons.sync,
+          color: Colors.green) // Change to green color and synced icon
+      : Icon(Icons.sync_disabled, color: Colors.red);
+
   @override
   Widget build(BuildContext context) {
     SingingCharacter? _character = SingingCharacter.D1;
@@ -340,10 +271,17 @@ class _DashboardState extends State<Dashboard> {
                   backgroundColor: primary,
                   onPressed: () {
                     Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) =>
-                                NewSchedule(device: widget.device)));
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            NewSchedule(device: widget.device),
+                      ),
+                    ).then((value) {
+                      setState(() {
+                        isUploaded = false;
+                        getSchedules();
+                      });
+                    });
                   },
                   child: const Icon(
                     Icons.add,
@@ -357,13 +295,6 @@ class _DashboardState extends State<Dashboard> {
                   "Add Schedule",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                 ),
-                Text(
-                  "*",
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: primary),
-                )
               ],
             ),
           ),
@@ -415,10 +346,31 @@ class _DashboardState extends State<Dashboard> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Align(
-                                alignment: Alignment.center,
+                              Icon(
+                                widget.device.bondState ==
+                                        BluetoothBondState.bonded
+                                    ? Icons.bluetooth_connected
+                                    : Icons.bluetooth_disabled,
+                                color: widget.device.bondState ==
+                                        BluetoothBondState.bonded
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                              SizedBox(
+                                width: 5,
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(SnackBar(
+                                    content: Text(
+                                        "Connecting to ${widget.device.name} ..."),
+                                    behavior: SnackBarBehavior.floating,
+                                  ));
+                                  connect();
+                                },
                                 child: Text(
-                                  "Device 1   ",
+                                  "${(widget.device.name?.length)! > 5 ? widget.device.name?.substring(0, 6) : widget.device.name} ",
                                   style: TextStyle(
                                     color: Colors.black,
                                     fontSize: 20,
@@ -427,8 +379,8 @@ class _DashboardState extends State<Dashboard> {
                                 ),
                               ),
                               Icon(
-                                Icons.sync_disabled,
-                                color: Colors.red,
+                                isUploaded ? Icons.sync : Icons.sync_disabled,
+                                color: isUploaded ? Colors.green : Colors.red,
                               ),
                             ],
                           ),
@@ -461,12 +413,16 @@ class _DashboardState extends State<Dashboard> {
                               itemBuilder: (context, index) {
                                 final schedule = schedules[index];
 
-                                return schedule.status == '1'
+                                return (schedule.status == '1' &&
+                                        schedule.device_name ==
+                                            widget.device.name)
                                     ? ContainerWidget(
                                         day: schedule.day,
                                         schedule: schedule.time,
+                                        index: index,
+                                        action: schedule.action,
                                       )
-                                    : Text("No Active Schedules Available");
+                                    : SizedBox();
                               },
                             ),
                           ),
@@ -477,7 +433,7 @@ class _DashboardState extends State<Dashboard> {
                           child: Container(
                             height: MediaQuery.of(context).size.height *
                                 0.5, // Adjust height as needed
-                            child: Center(child: Text("No schedules created")),
+                            child: Text("No Schedules Created"),
                           ),
                         ),
                   SizedBox(height: 30),
@@ -486,7 +442,30 @@ class _DashboardState extends State<Dashboard> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         ElevatedButton.icon(
-                          onPressed: () {},
+                          onPressed: () {
+                            showDialog<String>(
+                              context: context,
+                              builder: (BuildContext context) => AlertDialog(
+                                title: const Text(
+                                    'Are you sure you want to delete all schedules?'),
+                                content:
+                                    const Text('This action cannot be undone.'),
+                                actions: <Widget>[
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, 'Cancel'),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(context, 'Confirm');
+                                    },
+                                    child: const Text('Confirm'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                           icon: Icon(Icons.delete),
                           label: Text(
                             "Delete Schedule",
@@ -504,33 +483,37 @@ class _DashboardState extends State<Dashboard> {
                           ),
                         ),
                         ElevatedButton.icon(
-                          // onPressed: () {
-                          //   print(containerDataList[1].alarmStatus);
-                          //   String jsonString =
-                          //       generateJsonString(containerDataList);
-                          //
-                          //   // Send the generated JSON string to the Bluetooth device
-                          //   // Replace 'sendJsonToBluetoothDevice' with the actual method to send data via Bluetooth
-                          //   print(jsonString);
-                          // },
                           onPressed: () async {
                             if (connection != null && connection!.isConnected) {
                               sendMessage(
                                   generateJsonString(containerDataList));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      margin: EdgeInsets.only(
-                                          left: 10, right: 10, bottom: 5),
-                                      behavior: SnackBarBehavior.floating,
-                                      content: Center(
-                                          child: Text(
-                                              "Data write successfully"))));
+                              setState(() {
+                                isUploaded = true;
+                              });
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                margin: EdgeInsets.only(
+                                    left: 10, right: 10, bottom: 5),
+                                behavior: SnackBarBehavior.floating,
+                                content: Center(
+                                    child: Text("Data uploaded successfully")),
+                              ));
                               print("Parameters sent successfully");
                             } else {
+                              connect();
+                              sendMessage(
+                                  generateJsonString(containerDataList));
+
                               print("Bluetooth connection is not established.");
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  margin: EdgeInsets.only(
+                                      left: 10, right: 10, bottom: 5),
+                                  behavior: SnackBarBehavior.floating,
+                                  content: Center(
+                                      child: Text(
+                                          "Bluetooth connection is not established."))));
                             }
                           },
-
                           icon: Icon(Icons.upload),
                           label: Text(
                             "Upload Schedule",
@@ -564,12 +547,58 @@ class _DashboardState extends State<Dashboard> {
 class ContainerWidget extends StatelessWidget {
   final String day;
   final String schedule;
+  final int index;
+
+  final String action;
 
   const ContainerWidget({
     Key? key,
     required this.day,
     required this.schedule,
+    required this.index,
+    required this.action,
   }) : super(key: key);
+
+  Future<void> deleteSchedule(int index, BuildContext context) async {
+    Services service = Services();
+    print(index);
+    Schedule schedule = Schedule(
+        schedules[index].device_name,
+        schedules[index].day,
+        schedules[index].time,
+        schedules[index].pin_no,
+        schedules[index].action,
+        schedules[index].is_uploaded,
+        "0",
+        "null",
+        "null",
+        schedules[index].created_by,
+        "null");
+
+    await service.updateSchedule(schedule, index + 1).then((value) {
+      Navigator.pushReplacementNamed(context, '/dashboard');
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Schedule deleted successfully"),
+        behavior: SnackBarBehavior.floating,
+      ));
+    });
+  }
+
+  void confirm() {
+    AlertDialog(
+        title: Text("Are you sure?"),
+        content: Text("This action cannot be undone."),
+        actions: [
+          TextButton(
+            onPressed: () {},
+            child: Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {},
+            child: Text("Confirm"),
+          )
+        ]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -604,10 +633,21 @@ class ContainerWidget extends StatelessWidget {
                   ),
                   Flexible(
                     child: Text(
-                      schedule,
+                      "${schedule}",
                       textAlign: TextAlign.left,
                       style: TextStyle(
                         color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: Text(
+                      "${schedules[index].pin_no}",
+                      textAlign: TextAlign.left,
+                      style: TextStyle(
+                        color: (action == "true") ? Colors.green : Colors.red,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -627,7 +667,26 @@ class ContainerWidget extends StatelessWidget {
               color: Colors.red.withOpacity(0.10),
             ),
             child: IconButton(
-                onPressed: () {},
+                onPressed: () => showDialog<String>(
+                      context: context,
+                      builder: (BuildContext context) => AlertDialog(
+                        title: const Text('Are you sure you want to delete?'),
+                        content: const Text('This action cannot be undone.'),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, 'Cancel'),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              deleteSchedule(index, context);
+                              Navigator.pop(context, 'Confirm');
+                            },
+                            child: const Text('Confirm'),
+                          ),
+                        ],
+                      ),
+                    ),
                 icon: Icon(
                   Icons.delete,
                   size: 30,
