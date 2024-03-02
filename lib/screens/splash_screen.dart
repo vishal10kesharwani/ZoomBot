@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/color_constants.dart';
+
 class SplashScreen extends StatefulWidget {
   @override
   _SplashScreenState createState() => _SplashScreenState();
@@ -21,7 +23,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Customize the background color if needed
+      backgroundColor: primary, // Customize the background color if needed
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

@@ -1,4 +1,5 @@
 import 'package:bluetooth/screens/dashboard.dart';
+import 'package:bluetooth/utils/string_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 
@@ -11,14 +12,19 @@ class BluetoothDeviceListEntry extends ListTile {
     int? rssi,
     //GestureTapCallback? onTap,
     GestureLongPressCallback? onLongPress,
+    onTap,
     bool enabled = true,
   }) : super(
-          // onTap: onTap,
+          onTap: onTap,
           onLongPress: onLongPress,
           enabled: enabled,
           leading: const Icon(Icons.devices),
           title: Text(device.name ?? ""),
-          subtitle: Text(device.address.toString()),
+          subtitle: buildMode == "Test"
+              ? Text(device.address.toString())
+              : (device.isBonded
+                  ? Text("Paired", style: TextStyle(color: Colors.green))
+                  : Text("Not paired", style: TextStyle(color: Colors.red))),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
@@ -52,7 +58,13 @@ class BluetoothDeviceListEntry extends ListTile {
                                       device: device,
                                     )));
                       },
-                      child: const Icon(Icons.link),
+                      child: Container(
+                          padding: const EdgeInsets.all(8.0),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: const Icon(Icons.link)),
                     )
                   : const SizedBox(width: 0, height: 0),
             ],

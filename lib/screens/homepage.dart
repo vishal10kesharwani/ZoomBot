@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../utils/color_constants.dart';
 import 'bluetooth_device_entry.dart';
+import 'dashboard.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -82,31 +83,32 @@ class _HomePageState extends State<HomePage> {
 
     var status = await Permission.bluetoothScan.request();
     if (status == PermissionStatus.granted) {
-      if (_streamSubscription == null) {
-        _streamSubscription =
-            FlutterBluetoothSerial.instance.startDiscovery().listen((r) {
-          WidgetsBinding.instance!.addPostFrameCallback((_) {
-            setState(() {
-              final existingIndex = results.indexWhere(
-                (element) => element.device.address == r.device.address,
-              );
-              print("Home: Start Discovery: $existingIndex");
-
-              if (existingIndex >= 0) {
-                results[existingIndex] = r;
-              } else {
-                results.add(r);
-              }
-            });
-          });
-        });
-
-        _streamSubscription!.onDone(() {
+      setState(() {
+        isDiscovering = true;
+      });
+      _streamSubscription =
+          FlutterBluetoothSerial.instance.startDiscovery().listen((r) {
+        WidgetsBinding.instance!.addPostFrameCallback((_) {
           setState(() {
-            isDiscovering = false;
+            final existingIndex = results.indexWhere(
+              (element) => element.device.address == r.device.address,
+            );
+            print("Home: Start Discovery: $existingIndex");
+
+            if (existingIndex >= 0) {
+              results[existingIndex] = r;
+            } else {
+              results.add(r);
+            }
           });
         });
-      }
+      });
+
+      _streamSubscription!.onDone(() {
+        setState(() {
+          isDiscovering = false;
+        });
+      });
     } else {
       showDialog(
         context: scaffoldKey.currentContext!,
@@ -134,12 +136,20 @@ class _HomePageState extends State<HomePage> {
     print(results);
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: ColorConstants.whiteColor,
+        backgroundColor: primary,
         actions: [
           IconButton(onPressed: () {}, icon: Icon(Icons.search)),
-          IconButton(
-            onPressed: () {},
-            icon: Icon(Icons.notifications_active_outlined),
+          Padding(
+            padding: const EdgeInsets.only(right: 10.0),
+            child: IconButton(
+              tooltip: 'All device schedules',
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) {
+                  return ALlSchedules();
+                }));
+              },
+              icon: Icon(Icons.devices_other),
+            ),
           ),
         ],
       ),
@@ -148,16 +158,16 @@ class _HomePageState extends State<HomePage> {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.all(15),
+              padding: const EdgeInsets.all(30),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: <Widget>[
                   Expanded(
                     child: Text(
-                      'Bluetooth Switch',
+                      'Bluetooth',
                       style: TextStyle(
                         color: ColorConstants.silverMetallic,
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -174,22 +184,12 @@ class _HomePageState extends State<HomePage> {
                     activeColor: Colors.red, // Set the color when switch is on
                     inactiveThumbColor: Colors.grey,
                   ),
-                  // ElevatedButton(
-                  //   style: ElevatedButton.styleFrom(
-                  //     shape: RoundedRectangleBorder(
-                  //       borderRadius: BorderRadius.circular(20.0),
-                  //     ),
-                  //   ),
-                  //   onPressed: _toggleBluetooth,
-                  //   child: Text(
-                  //     _bluetoothState == BluetoothState.STATE_OFF
-                  //         ? 'OFF'
-                  //         : 'ON',
-                  //     style: const TextStyle(color: Colors.white),
-                  //   ),
-                  // ),
                 ],
               ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 30.0, right: 30),
+              child: Divider(),
             ),
             const SizedBox(
               height: 10,
@@ -205,16 +205,53 @@ class _HomePageState extends State<HomePage> {
                     Padding(
                       padding: EdgeInsets.only(top: 10),
                       child: Text(
-                        " Discovered Devices",
+                        "Discovered Devices",
                         style: TextStyle(
                             fontSize: 20,
                             color: ColorConstants.silverMetallicDark),
                         textAlign: TextAlign.center,
                       ),
                     ),
+                    Padding(
+                      padding:
+                          const EdgeInsets.only(left: 30.0, right: 30, top: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              'Scan devices',
+                              style: TextStyle(
+                                color: ColorConstants.silverMetallic,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.25),
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                            child: isDiscovering
+                                ? Transform.scale(
+                                    scale: 0.5,
+                                    child: CircularProgressIndicator())
+                                : IconButton(
+                                    tooltip: "Scan",
+                                    onPressed: () {
+                                      _startDiscovery();
+                                    },
+                                    icon: Icon(Icons.sync),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(
                       height: 30,
                     ),
+
                     //   discovered devices list
                     SingleChildScrollView(
                       child: ListView.builder(
@@ -254,8 +291,8 @@ class _HomePageState extends State<HomePage> {
                               final address = device.address;
 
                               return Padding(
-                                padding:
-                                    const EdgeInsets.only(left: 30, right: 30),
+                                padding: const EdgeInsets.only(
+                                    left: 30, right: 30, bottom: 10),
                                 child: Card(
                                   shadowColor: Colors.black,
                                   elevation: 3,
@@ -263,10 +300,16 @@ class _HomePageState extends State<HomePage> {
                                       context: context,
                                       device: device,
                                       rssi: result.rssi,
-                                      // onTap: () {
-                                      //   Navigator.of(context)
-                                      //       .pop(result.device);
-                                      // },
+                                      onTap: () {
+                                        device.isBonded
+                                            ? Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        Dashboard(
+                                                          device: device,
+                                                        )))
+                                            : null;
+                                      },
                                       onLongPress: () async {
                                         try {
                                           bool bonded = false;
@@ -287,6 +330,11 @@ class _HomePageState extends State<HomePage> {
                                           } else {
                                             print(
                                                 'Pairing with ${device.address}...');
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(SnackBar(
+                                                    content: Center(
+                                                        child: Text(
+                                                            "Pairing with ${device.address}..."))));
                                             bonded =
                                                 (await FlutterBluetoothSerial
                                                         .instance
@@ -318,12 +366,11 @@ class _HomePageState extends State<HomePage> {
                                           });
                                         } catch (ex) {
                                           showDialog(
-                                            context:
-                                                scaffoldKey.currentContext!,
+                                            context: context,
                                             builder: (BuildContext context) {
                                               return AlertDialog(
                                                 title: const Text(
-                                                    'Error occurred while bonding'),
+                                                    'Error occurred while pairing'),
                                                 content: Text(ex.toString()),
                                                 actions: <Widget>[
                                                   TextButton(
@@ -343,7 +390,21 @@ class _HomePageState extends State<HomePage> {
                               );
                             }
                           }),
-                    )
+                    ),
+                    SizedBox(
+                      height: 20,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 30),
+                      child: Text(
+                        "Long press on a device card to pair, and long press on the link to unpair.",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ],
                 ),
               ],

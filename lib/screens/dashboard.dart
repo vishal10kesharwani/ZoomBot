@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:bluetooth/screens/new_schedule.dart';
 import 'package:bluetooth/utils/color_constants.dart';
+import 'package:bluetooth/utils/string_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +16,8 @@ var device1;
 var epoch;
 bool isUploaded = false;
 var response;
+var uploadResponse;
+var isConnected = false;
 
 enum SingingCharacter { D1, D2 }
 
@@ -62,24 +66,36 @@ class _DashboardState extends State<Dashboard> {
 
   void connect() async {
     connection = await BluetoothConnection.toAddress(widget.device.address);
+    setState(() {
+      widget.device.isConnected || widget.device.isBonded
+          ? isConnected = true
+          : isConnected = false;
+    });
     listenForResponse();
   }
 
   void sendMessage(String message) {
     connection?.output.add(Uint8List.fromList(utf8.encode(message + "\r\n")));
-    setState(() {
-      isUploaded = true;
-    });
   }
 
   void listenForResponse() {
     connection?.input?.listen((Uint8List data) {
       print('Received raw data: $data');
-      setState(() {
-        response = utf8.decode(data);
-      });
+
+      if (response == null) {
+        setState(() {
+          response = utf8.decode(data);
+        });
+      } else if (response != null) {
+        setState(() {
+          uploadResponse = utf8.decode(data);
+        });
+      } else {
+        return;
+      }
+
       print(
-          'listenForResponse : response is $response   ${widget.device.name}');
+          'listenForResponse : response is $response   ${uploadResponse.toString()}');
       updateAll();
       // Map<String, String> jsonObject = jsonDecode(response);
       // print(
@@ -88,11 +104,12 @@ class _DashboardState extends State<Dashboard> {
   }
 
   void updateAll() async {
-    if (response.contains(widget.device.address)) {
+    if (response == uploadResponse) {
       setState(() {
         Services service = Services();
         service.updateAllSchedule(widget.device.name.toString()).then((_) {
           print("Schedules updated successfully");
+          isUploaded = true;
         }).catchError((error) {
           print("Error updating schedules: $error");
         });
@@ -100,14 +117,30 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
+  late StreamController<DateTime> _timeStreamController;
+  late Stream<DateTime> _timeStream;
+
   @override
   void initState() {
     super.initState();
     setState(() {
       getSchedules();
       device1 = widget.device;
+      widget.device.isConnected ? isConnected = true : isConnected = false;
       containerDataList = containerDataList;
     });
+    _timeStreamController = StreamController<DateTime>();
+    _timeStream = _timeStreamController.stream;
+
+    // Emit the current time periodically (every second)
+    _timeStreamController.addStream(Stream.periodic(Duration(seconds: 1), (_) {
+      return DateTime.now();
+    }));
+
+    // Dispose the stream controller when the widget is disposed
+    _timeStreamController.onCancel = () {
+      _timeStreamController.close();
+    };
     connect();
   }
 
@@ -346,6 +379,33 @@ class _DashboardState extends State<Dashboard> {
                       SizedBox(
                         height: 20,
                       ),
+                      buildMode == "Test"
+                          ? StreamBuilder<DateTime>(
+                              stream: _timeStream,
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData) {
+                                  // Format the current time
+                                  String formattedTime = DateFormat('hh:mm:ss')
+                                      .format(snapshot.data!);
+                                  return Text(
+                                    "$formattedTime",
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 18,
+                                    ),
+                                  );
+                                } else {
+                                  return Text(
+                                      'Loading...'); // Placeholder text while waiting for data
+                                }
+                              },
+                            )
+                          : SizedBox(),
+                      buildMode == "Test"
+                          ? SizedBox(
+                              height: 10,
+                            )
+                          : SizedBox(),
                       Padding(
                         padding: const EdgeInsets.only(
                           left: 50.0,
@@ -362,13 +422,10 @@ class _DashboardState extends State<Dashboard> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                widget.device.isConnected
+                                isConnected
                                     ? Icons.bluetooth_connected
                                     : Icons.bluetooth_disabled,
-                                color: widget.device.bondState ==
-                                        BluetoothBondState.bonded
-                                    ? Colors.green
-                                    : Colors.red,
+                                color: isConnected ? Colors.green : Colors.red,
                               ),
                               SizedBox(
                                 width: 5,
@@ -380,6 +437,7 @@ class _DashboardState extends State<Dashboard> {
                                     content: Text(
                                         "Connecting to ${widget.device.name} ..."),
                                     behavior: SnackBarBehavior.floating,
+                                    duration: Duration(seconds: 1),
                                   ));
                                   connect();
                                 },
@@ -510,9 +568,7 @@ class _DashboardState extends State<Dashboard> {
                             if (connection != null && connection!.isConnected) {
                               sendMessage(
                                   generateJsonString(containerDataList));
-                              setState(() {
-                                isUploaded = true;
-                              });
+
                               ScaffoldMessenger.of(context)
                                   .showSnackBar(SnackBar(
                                 margin: EdgeInsets.only(
