@@ -128,7 +128,7 @@ class _ALlSchedulesState extends State<ALlSchedules> {
                           child: Container(
                             height: MediaQuery.of(context).size.height *
                                 0.5, // Adjust height as needed
-                            child: Text("No Schedules Created"),
+                            child: Text("No Devices Paired"),
                           ),
                         ),
                   SizedBox(height: 30),
@@ -229,55 +229,6 @@ class ContainerWidget extends StatelessWidget {
               Icons.edit_calendar,
               color: primary,
             )),
-        // child: Row(
-        //   children: [
-        //     Padding(
-        //       padding: const EdgeInsets.only(bottom: 10.0, left: 10, right: 10),
-        //       child: Container(
-        //         width: 300,
-        //         decoration: BoxDecoration(
-        //           color: primary.withOpacity(0.05),
-        //           borderRadius: BorderRadius.circular(10),
-        //           border: Border.all(color: primary, width: 0.5),
-        //         ),
-        //         child: Padding(
-        //           padding: const EdgeInsets.all(15.0),
-        //           child: Row(
-        //             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        //             children: [
-        //
-        //               Flexible(
-        //                 child: Text(
-        //                   "${schedules[index].device_name}",
-        //                   textAlign: TextAlign.left,
-        //                   style: TextStyle(
-        //                     color: Colors.black,
-        //                     fontSize: 16,
-        //                     fontWeight: FontWeight.bold,
-        //                   ),
-        //                 ),
-        //               ),
-        //               IconButton(
-        //                   tooltip: ("Active device schedules"),
-        //                   onPressed: () {
-        //                     print(schedules[index].device_name);
-        //                     Navigator.pushReplacement(context,
-        //                         MaterialPageRoute(builder: (context) {
-        //                       return AllDeviceSchedule(
-        //                           device: schedules[index].device_name);
-        //                     }));
-        //                   },
-        //                   icon: Icon(
-        //                     Icons.edit_calendar,
-        //                     color: primary,
-        //                   ))
-        //             ],
-        //           ),
-        //         ),
-        //       ),
-        //     ),
-        //   ],
-        // ),
       ),
     );
   }

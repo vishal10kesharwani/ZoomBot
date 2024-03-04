@@ -69,7 +69,7 @@ class DynamicList extends State<NewSchedule> {
   final end = dateRange.end;
   final values = <bool>[false, false, false, false, false, false, false];
 
-  void submit() async {
+  void submit(selectedData) async {
     setState(() {
       _time =
           "${_selectedTime.hourOfPeriod.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')} ${_selectedTime.period.toString().toUpperCase().split('.').last}";
@@ -114,7 +114,7 @@ class DynamicList extends State<NewSchedule> {
         _showSnackBar("Please select at least one day");
         return; // Exit the function early
       }
-      if (_groupValue == -1) {
+      if (selectedData != "D1" && selectedData != "D2") {
         _showSnackBar("Please select a pin no. (D1 or D2)");
         return; // Exit the function early
       }
@@ -125,7 +125,7 @@ class DynamicList extends State<NewSchedule> {
               widget.device.name,
               _getDayOfWeek(i),
               _time!,
-              selectedDevice = _groupValue == 0 ? "D1" : "D2",
+              selectedDevice = selectedData == "D1" ? "D1" : "D2",
               light0.toString(),
               "false",
               "1",
@@ -160,11 +160,6 @@ class DynamicList extends State<NewSchedule> {
           // });
 
           var res = service.insertSchedule(newSchedule);
-          if (res != null) {
-            print("Schedule Added");
-            _showSnackBar("Schedule Added Successfully");
-            Navigator.pop(context, false);
-          }
         }
       }
     });
@@ -181,6 +176,8 @@ class DynamicList extends State<NewSchedule> {
     throw '🐞 This should never have happened: $day';
   }
 
+  bool selectedD1 = true;
+  bool selectedD2 = true;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -327,46 +324,64 @@ class DynamicList extends State<NewSchedule> {
                           SizedBox(
                             height: 20,
                           ),
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                flex: 1,
-                                child: RadioListTile(
-                                  value: 0,
-                                  groupValue: _groupValue,
-                                  title: Text(
-                                    "D1",
-                                    style: TextStyle(
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 20),
-                                  ),
-                                  onChanged: (newValue) =>
-                                      setState(() => _groupValue = newValue!),
-                                  activeColor: Colors.red,
-                                  selected: false,
-                                ),
-                              ),
-                              Expanded(
-                                flex: 1,
-                                child: RadioListTile(
-                                  value: 1,
-                                  groupValue: _groupValue,
-                                  title: Text(
-                                    "D2",
-                                    style: TextStyle(
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 20),
-                                  ),
-                                  onChanged: (newValue) =>
-                                      setState(() => _groupValue = newValue!),
-                                  activeColor: Colors.red,
-                                  selected: false,
-                                ),
-                              ),
-                            ],
-                          ),
+                          // Row(
+                          //   children: <Widget>[
+                          //     Expanded(
+                          //       flex: 1,
+                          //       child: CheckboxListTile(
+                          //         title: Text(
+                          //           "D1",
+                          //           style: TextStyle(
+                          //               color: Colors.black,
+                          //               fontWeight: FontWeight.bold,
+                          //               fontSize: 20),
+                          //         ),
+                          //         value: selectedD1,
+                          //         onChanged: (newValue) {
+                          //           setState(() {
+                          //             selectedD1 = newValue!;
+                          //
+                          //             // If both checkboxes are selected, add records for each pin no.
+                          //             if (selectedD1 && selectedD2) {
+                          //               _groupValue = -1; // Reset radio buttons
+                          //               // _addRecordsForBothPins();
+                          //             }
+                          //           });
+                          //         },
+                          //         activeColor: primary,
+                          //         controlAffinity:
+                          //             ListTileControlAffinity.leading,
+                          //       ),
+                          //     ),
+                          //     Expanded(
+                          //       flex: 1,
+                          //       child: CheckboxListTile(
+                          //         title: Text(
+                          //           "D2",
+                          //           style: TextStyle(
+                          //               color: Colors.black,
+                          //               fontWeight: FontWeight.bold,
+                          //               fontSize: 20),
+                          //         ),
+                          //         value: selectedD2,
+                          //         onChanged: (newValue) {
+                          //           setState(() {
+                          //             selectedD2 = newValue!;
+                          //
+                          //             // If both checkboxes are selected, add records for each pin no.
+                          //             if (selectedD1 && selectedD2) {
+                          //               _groupValue = -1; // Reset radio buttons
+                          //               // _addRecordsForBothPins();
+                          //             }
+                          //           });
+                          //         },
+                          //         activeColor: primary,
+                          //         controlAffinity:
+                          //             ListTileControlAffinity.leading,
+                          //       ),
+                          //     ),
+                          //   ],
+                          // ),
                           SizedBox(
                             height: 20,
                           ),
@@ -411,7 +426,22 @@ class DynamicList extends State<NewSchedule> {
                               Spacer(),
                               ElevatedButton(
                                 onPressed: () {
-                                  submit();
+                                  if (selectedD1 || selectedD2) {
+                                    if (selectedD1 && selectedD2) {
+                                      submit("D1");
+                                      submit("D2");
+                                      print("Schedule Added");
+                                      _showSnackBar(
+                                          "Schedule Added Successfully");
+                                      Navigator.pop(context, false);
+                                    } else {
+                                      submit(selectedD1 ? "D1" : "D2");
+                                      print("Schedule Added");
+                                      _showSnackBar(
+                                          "Schedule Added Successfully");
+                                      Navigator.pop(context, false);
+                                    }
+                                  }
                                 },
                                 child: Text(
                                   "Save",

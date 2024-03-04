@@ -7,6 +7,7 @@ import 'package:bluetooth/utils/color_constants.dart';
 import 'package:bluetooth/utils/string_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../data/database_helper.dart';
@@ -96,7 +97,7 @@ class _DashboardState extends State<Dashboard> {
 
       print(
           'listenForResponse : response is $response   ${uploadResponse.toString()}');
-      updateAll();
+
       // Map<String, String> jsonObject = jsonDecode(response);
       // print(
       //     'listenForResponse : jsonObject is ${jsonObject['mac_id'].toString() + " " + widget.device.address.toString()} ');
@@ -106,14 +107,29 @@ class _DashboardState extends State<Dashboard> {
   void updateAll() async {
     if (response == uploadResponse) {
       setState(() {
+        isUploaded = true;
         Services service = Services();
         service.updateAllSchedule(widget.device.name.toString()).then((_) {
           print("Schedules updated successfully");
-          isUploaded = true;
         }).catchError((error) {
           print("Error updating schedules: $error");
         });
       });
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchDataFromAPI() async {
+    try {
+      http.Response response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = json.decode(response.body);
+        return data;
+      } else {
+        throw Exception('Failed to fetch data: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error: $e');
+      rethrow;
     }
   }
 
@@ -131,12 +147,10 @@ class _DashboardState extends State<Dashboard> {
     });
     _timeStreamController = StreamController<DateTime>();
     _timeStream = _timeStreamController.stream;
-
     // Emit the current time periodically (every second)
     _timeStreamController.addStream(Stream.periodic(Duration(seconds: 1), (_) {
       return DateTime.now();
     }));
-
     // Dispose the stream controller when the widget is disposed
     _timeStreamController.onCancel = () {
       _timeStreamController.close();
@@ -297,8 +311,8 @@ class _DashboardState extends State<Dashboard> {
               ),
             ).then((value) {
               setState(() {
-                isUploaded = false;
                 getSchedules();
+                // isUploaded = false;
               });
             });
           },
@@ -440,6 +454,18 @@ class _DashboardState extends State<Dashboard> {
                                     duration: Duration(seconds: 1),
                                   ));
                                   connect();
+                                  if (widget.device.isConnected) {
+                                    setState(() {
+                                      isConnected = true;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(SnackBar(
+                                        content: Text(
+                                            "Connected to ${widget.device.name} ..."),
+                                        behavior: SnackBarBehavior.floating,
+                                        duration: Duration(seconds: 1),
+                                      ));
+                                    });
+                                  }
                                 },
                                 child: Text(
                                   "${(widget.device.name?.length)! > 5 ? widget.device.name?.substring(0, 6) : widget.device.name} ",
@@ -493,6 +519,7 @@ class _DashboardState extends State<Dashboard> {
                                         schedule: schedule.time,
                                         index: index,
                                         action: schedule.action,
+                                        getSchedules: getSchedules,
                                       )
                                     : SizedBox();
                               },
@@ -566,8 +593,11 @@ class _DashboardState extends State<Dashboard> {
                         ElevatedButton.icon(
                           onPressed: () async {
                             if (connection != null && connection!.isConnected) {
+                              var data = await fetchDataFromAPI();
+                              print(data);
                               sendMessage(
                                   generateJsonString(containerDataList));
+                              updateAll();
 
                               ScaffoldMessenger.of(context)
                                   .showSnackBar(SnackBar(
@@ -579,18 +609,15 @@ class _DashboardState extends State<Dashboard> {
                               ));
                               print("Parameters sent successfully");
                             } else {
-                              connect();
-                              sendMessage(
-                                  generateJsonString(containerDataList));
-
                               print("Bluetooth connection is not established.");
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  margin: EdgeInsets.only(
-                                      left: 10, right: 10, bottom: 5),
-                                  behavior: SnackBarBehavior.floating,
-                                  content: Center(
-                                      child: Text(
-                                          "Bluetooth connection is not established."))));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      margin: EdgeInsets.only(
+                                          left: 10, right: 10, bottom: 5),
+                                      behavior: SnackBarBehavior.floating,
+                                      content: Center(
+                                          child: Text(
+                                              "Bluetooth connection is not established."))));
                             }
                           },
                           icon: Icon(Icons.upload),
@@ -630,12 +657,15 @@ class ContainerWidget extends StatelessWidget {
 
   final String action;
 
+  final void Function() getSchedules;
+
   const ContainerWidget({
     Key? key,
     required this.day,
     required this.schedule,
     required this.index,
     required this.action,
+    required void Function() this.getSchedules,
   }) : super(key: key);
 
   Future<void> deleteSchedule(int index, BuildContext context) async {
@@ -655,10 +685,12 @@ class ContainerWidget extends StatelessWidget {
         "null");
 
     await service.updateSchedule(schedule, index + 1).then((value) {
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      // Navigator.pushReplacementNamed(context, '/dashboard');
+      getSchedules();
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Schedule deleted successfully"),
         behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 1),
       ));
     });
   }

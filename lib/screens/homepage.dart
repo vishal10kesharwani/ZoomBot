@@ -4,6 +4,7 @@ import 'package:bluetooth/screens/all_schedules.dart';
 import 'package:bluetooth/utils/string_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../utils/color_constants.dart';
@@ -69,15 +70,29 @@ class _HomePageState extends State<HomePage> {
   Future<void> requestBluetoothConnectPermission() async {
     var bluetoothConnectPermissionStatus =
         await Permission.bluetoothConnect.request();
+
     if (bluetoothConnectPermissionStatus != PermissionStatus.granted) {
       print('Bluetooth Connect permission not granted.');
     }
+  }
+
+  Future<void> checkGps() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        print('Location permissions are denied');
+      } else if (permission == LocationPermission.deniedForever) {
+        print("Location permissions are permanently denied");
+      } else {}
+    } else {}
   }
 
   void _startDiscovery() async {
     if (_bluetoothState != BluetoothState.STATE_ON) {
       return;
     }
+    checkGps();
 
     await requestBluetoothConnectPermission();
 
@@ -111,7 +126,7 @@ class _HomePageState extends State<HomePage> {
       });
     } else {
       showDialog(
-        context: scaffoldKey.currentContext!,
+        context: context,
         builder: (BuildContext context) {
           return AlertDialog(
             title: const Text('Permission Denied'),
@@ -315,13 +330,13 @@ class _HomePageState extends State<HomePage> {
                                           bool bonded = false;
                                           if (device.isBonded) {
                                             print(
-                                                'Unbonding from ${device.address}...');
+                                                'Unbonding from ${device.name}...');
                                             await FlutterBluetoothSerial
                                                 .instance
                                                 .removeDeviceBondWithAddress(
                                                     address);
                                             print(
-                                                'Unpaired from ${device.address} has succed');
+                                                'Unpaired from ${device.name} has succed');
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(SnackBar(
                                                     content: Center(
@@ -329,12 +344,12 @@ class _HomePageState extends State<HomePage> {
                                                             "Device Un-Paired Successfully"))));
                                           } else {
                                             print(
-                                                'Pairing with ${device.address}...');
+                                                'Pairing with ${device.name}...');
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(SnackBar(
                                                     content: Center(
                                                         child: Text(
-                                                            "Pairing with ${device.address}..."))));
+                                                            "Pairing with ${device.name}..."))));
                                             bonded =
                                                 (await FlutterBluetoothSerial
                                                         .instance
@@ -342,12 +357,15 @@ class _HomePageState extends State<HomePage> {
                                                             address)) ??
                                                     false;
                                             print(
-                                                'Pairing with ${device.address} has ${bonded ? 'succed' : 'failed'}.');
+                                                'Pairing with ${device.name} has ${bonded ? 'succed' : 'failed'}.');
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(SnackBar(
-                                                    content: Center(
-                                                        child: Text(
-                                                            "Device Paired Successfully"))));
+                                              content: Center(
+                                                  child: Text(
+                                                      "Device Paired Successfully")),
+                                              behavior:
+                                                  SnackBarBehavior.floating,
+                                            ));
                                           }
                                           setState(() {
                                             results[results.indexOf(result)] =
@@ -467,127 +485,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-
-// @override
-// Widget build(BuildContext context) {
-//   return Scaffold(
-//     backgroundColor: primaryColor,
-//     appBar: AppBar(
-//       backgroundColor: primaryColor,
-//       actions: [
-//         IconButton(onPressed: () {}, icon: Icon(Icons.search)),
-//         IconButton(
-//           onPressed: () {},
-//           icon: Icon(Icons.notifications_active_outlined),
-//         ),
-//       ],
-//     ),
-//     body: Padding(
-//       padding: const EdgeInsets.all(30.0),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Padding(
-//             padding: const EdgeInsets.only(bottom: 20.0),
-//             child: Row(
-//               children: [
-//                 Expanded(
-//                   child: Text(
-//                     'Bluetooth Switch',
-//                     style: TextStyle(
-//                       color: Colors.black,
-//                       fontSize: 16,
-//                       fontWeight: FontWeight.bold,
-//                     ),
-//                   ),
-//                 ),
-//                 const SizedBox(height: 20),
-//                 Switch(
-//                   value: true,
-//                   onChanged: (value) {
-//                     setState(() {
-//                       isBluetoothOn = value;
-//                     });
-//                     _toggleBluetooth();
-//                   },
-//                   activeColor: Colors.red, // Set the color when switch is on
-//                   inactiveThumbColor: Colors.grey,
-//                 ),
-//               ],
-//             ),
-//           ),
-//           Text(
-//             "All Devices",
-//             style: TextStyle(fontSize: 25, fontWeight: FontWeight.w500),
-//           ),
-//           SizedBox(height: 20),
-//           Expanded(
-//             child: ListView.builder(
-//               itemCount: devices.length,
-//               itemBuilder: (context, index) {
-//                 // Get device details
-//                 final device = devices[index];
-//
-//                 // Check if the device name contains "Device"
-//                 if (device['name'].contains(deviceName)) {
-//                   return GestureDetector(
-//                     onTap: () {
-//                       print('Card tapped: ${device['name']}');
-//                       Navigator.push(
-//                           context,
-//                           MaterialPageRoute(
-//                               builder: (context) => Dashboard()));
-//                     },
-//                     child: Card(
-//                       color: Colors.white, // Set background color to white
-//                       shadowColor: Colors.grey.withOpacity(0.25),
-//                       elevation: 3,
-//                       child: ListTile(
-//                         leading: CircleAvatar(
-//                           backgroundImage: NetworkImage(device['image']),
-//                         ),
-//                         title: Text(
-//                           device['name'],
-//                           style: TextStyle(fontWeight: FontWeight.w500),
-//                         ),
-//                         subtitle: Row(
-//                           children: [
-//                             Container(
-//                               width: 8,
-//                               height: 8,
-//                               decoration: BoxDecoration(
-//                                 shape: BoxShape.circle,
-//                                 color: device['status'] == 'Online'
-//                                     ? Colors.green
-//                                     : Colors.red,
-//                               ),
-//                               margin: EdgeInsets.only(right: 8),
-//                             ),
-//                             Text(
-//                               device['status'],
-//                               style: TextStyle(
-//                                 color: device['status'] == 'Online'
-//                                     ? Colors.green
-//                                     : Colors.red,
-//                               ),
-//                             ),
-//                           ],
-//                         ),
-//                         trailing: device['status'] == 'Online'
-//                             ? Icon(Icons.bluetooth)
-//                             : Icon(Icons.bluetooth_disabled),
-//                       ),
-//                     ),
-//                   );
-//                 } else {
-//                   // If the device name doesn't contain "Device", return an empty container
-//                   return Container();
-//                 }
-//               },
-//             ),
-//           ),
-//         ],
-//       ),
-//     ),
-//   );
-// }
