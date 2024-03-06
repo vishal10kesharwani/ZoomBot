@@ -19,6 +19,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  List<BluetoothDevice> bondedDevices = [];
+
   BluetoothState _bluetoothState = BluetoothState.UNKNOWN;
   bool isBluetoothOn = true;
   final FlutterBluetoothSerial _bluetooth = FlutterBluetoothSerial.instance;
@@ -29,11 +31,28 @@ class _HomePageState extends State<HomePage> {
 
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
 
+  Future<void> _getBondedDevices() async {
+    try {
+      List<BluetoothDevice> devices =
+          await FlutterBluetoothSerial.instance.getBondedDevices();
+      setState(() {
+        devices = devices
+            .where((device) => device.name?.startsWith(deviceName) ?? false)
+            .toList();
+        bondedDevices = devices;
+        print("Home: Bonded Devices:${bondedDevices.length}");
+      });
+    } catch (ex) {
+      print("Error retrieving bonded devices: $ex");
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     FlutterBluetoothSerial.instance.state.then((state) {
       setState(() {
+        _getBondedDevices();
         _bluetoothState = state;
         isBluetoothOn = (_bluetoothState == BluetoothState.STATE_ON);
         print('bluetooth state initially is...$_bluetoothState');
@@ -277,7 +296,7 @@ class _HomePageState extends State<HomePage> {
                                 results
                                     .where((result) =>
                                         result.device.name
-                                            ?.contains(deviceName) ??
+                                            ?.startsWith(deviceName) ??
                                         false)
                                     .toList();
 
@@ -297,115 +316,241 @@ class _HomePageState extends State<HomePage> {
                               (a, b) => (a.device.name ?? "")
                                   .compareTo(b.device.name ?? " "),
                             );
-                            if (index < filteredDevices.length) {
-                              BluetoothDiscoveryResult result =
-                                  filteredDevices[index];
+                            if (filteredDevices.isEmpty == false) {
+                              if (index < filteredDevices.length) {
+                                BluetoothDiscoveryResult result =
+                                    filteredDevices[index];
 
-                              // BluetoothDiscoveryResult result = results[index];
-                              final device = result.device;
-                              final address = device.address;
+                                // BluetoothDiscoveryResult result = results[index];
+                                final device = result.device;
+                                final address = device.address;
 
-                              return Padding(
-                                padding: const EdgeInsets.only(
-                                    left: 30, right: 30, bottom: 10),
-                                child: Card(
-                                  shadowColor: Colors.black,
-                                  elevation: 3,
-                                  child: BluetoothDeviceListEntry(
-                                      context: context,
-                                      device: device,
-                                      rssi: result.rssi,
-                                      onTap: () {
-                                        device.isBonded
-                                            ? Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        Dashboard(
-                                                          device: device,
-                                                        )))
-                                            : null;
-                                      },
-                                      onLongPress: () async {
-                                        try {
-                                          bool bonded = false;
-                                          if (device.isBonded) {
-                                            print(
-                                                'Unbonding from ${device.name}...');
-                                            await FlutterBluetoothSerial
-                                                .instance
-                                                .removeDeviceBondWithAddress(
-                                                    address);
-                                            print(
-                                                'Unpaired from ${device.name} has succed');
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(SnackBar(
-                                                    content: Center(
-                                                        child: Text(
-                                                            "Device Un-Paired Successfully"))));
-                                          } else {
-                                            print(
-                                                'Pairing with ${device.name}...');
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(SnackBar(
-                                                    content: Center(
-                                                        child: Text(
-                                                            "Pairing with ${device.name}..."))));
-                                            bonded =
-                                                (await FlutterBluetoothSerial
-                                                        .instance
-                                                        .bondDeviceAtAddress(
-                                                            address)) ??
-                                                    false;
-                                            print(
-                                                'Pairing with ${device.name} has ${bonded ? 'succed' : 'failed'}.');
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(SnackBar(
-                                              content: Center(
-                                                  child: Text(
-                                                      "Device Paired Successfully")),
-                                              behavior:
-                                                  SnackBarBehavior.floating,
-                                            ));
-                                          }
-                                          setState(() {
-                                            results[results.indexOf(result)] =
-                                                BluetoothDiscoveryResult(
-                                                    device: BluetoothDevice(
-                                                      name: device.name ?? '',
-                                                      address: address,
-                                                      type: device.type,
-                                                      bondState: bonded
-                                                          ? BluetoothBondState
-                                                              .bonded
-                                                          : BluetoothBondState
-                                                              .none,
+                                return Padding(
+                                  padding: const EdgeInsets.only(
+                                      left: 30, right: 30, bottom: 10),
+                                  child: Card(
+                                    shadowColor: Colors.black,
+                                    elevation: 3,
+                                    child: BluetoothDeviceListEntry(
+                                        context: context,
+                                        device: device,
+                                        rssi: result.rssi,
+                                        onTap: () {
+                                          device.isBonded
+                                              ? Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          Dashboard(
+                                                            device: device,
+                                                          )))
+                                              : null;
+                                        },
+                                        onLongPress: () async {
+                                          try {
+                                            bool bonded = false;
+                                            if (device.isBonded) {
+                                              print(
+                                                  'Unbonding from ${device.name}...');
+                                              await FlutterBluetoothSerial
+                                                  .instance
+                                                  .removeDeviceBondWithAddress(
+                                                      address);
+                                              print(
+                                                  'Unpaired from ${device.name} has succed');
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(SnackBar(
+                                                      content: Center(
+                                                          child: Text(
+                                                              "Device Un-Paired Successfully"))));
+                                            } else {
+                                              print(
+                                                  'Pairing with ${device.name}...');
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(SnackBar(
+                                                      content: Center(
+                                                          child: Text(
+                                                              "Pairing with ${device.name}..."))));
+                                              bonded =
+                                                  (await FlutterBluetoothSerial
+                                                          .instance
+                                                          .bondDeviceAtAddress(
+                                                              address)) ??
+                                                      false;
+                                              print(
+                                                  'Pairing with ${device.name} has ${bonded ? 'succed' : 'failed'}.');
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(SnackBar(
+                                                content: Center(
+                                                    child: Text(
+                                                        "Device Paired Successfully")),
+                                                behavior:
+                                                    SnackBarBehavior.floating,
+                                              ));
+                                            }
+                                            setState(() {
+                                              results[results.indexOf(result)] =
+                                                  BluetoothDiscoveryResult(
+                                                      device: BluetoothDevice(
+                                                        name: device.name ?? '',
+                                                        address: address,
+                                                        type: device.type,
+                                                        bondState: bonded
+                                                            ? BluetoothBondState
+                                                                .bonded
+                                                            : BluetoothBondState
+                                                                .none,
+                                                      ),
+                                                      rssi: result.rssi);
+                                            });
+                                          } catch (ex) {
+                                            showDialog(
+                                              context: context,
+                                              builder: (BuildContext context) {
+                                                return AlertDialog(
+                                                  title: const Text(
+                                                      'Error occurred while pairing'),
+                                                  content: Text(ex.toString()),
+                                                  actions: <Widget>[
+                                                    TextButton(
+                                                      child:
+                                                          const Text("Close"),
+                                                      onPressed: () {
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      },
                                                     ),
-                                                    rssi: result.rssi);
-                                          });
-                                        } catch (ex) {
-                                          showDialog(
-                                            context: context,
-                                            builder: (BuildContext context) {
-                                              return AlertDialog(
-                                                title: const Text(
-                                                    'Error occurred while pairing'),
-                                                content: Text(ex.toString()),
-                                                actions: <Widget>[
-                                                  TextButton(
-                                                    child: const Text("Close"),
-                                                    onPressed: () {
-                                                      Navigator.of(context)
-                                                          .pop();
-                                                    },
-                                                  ),
-                                                ],
-                                              );
-                                            },
-                                          );
-                                        }
-                                      }),
-                                ),
-                              );
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                          }
+                                        }),
+                                  ),
+                                );
+                              }
+                            } else {
+                              if (index < filteredDevices.length) {
+                                BluetoothDiscoveryResult result =
+                                    BluetoothDiscoveryResult(
+                                  device: bondedDevices[index],
+                                  rssi: 0, // Set your desired RSSI value
+                                );
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(
+                                      left: 30, right: 30, bottom: 10),
+                                  child: Card(
+                                    shadowColor: Colors.black,
+                                    elevation: 3,
+                                    child: BluetoothDeviceListEntry(
+                                        context: context,
+                                        device: bondedDevices[index],
+                                        rssi: 0,
+                                        onTap: () {
+                                          bondedDevices[index].isBonded
+                                              ? Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          Dashboard(
+                                                            device:
+                                                                bondedDevices[
+                                                                    index],
+                                                          )))
+                                              : null;
+                                        },
+                                        onLongPress: () async {
+                                          try {
+                                            bool bonded = false;
+                                            if (bondedDevices[index].isBonded) {
+                                              print(
+                                                  'Unbonding from ${bondedDevices[index].name}...');
+                                              await FlutterBluetoothSerial
+                                                  .instance
+                                                  .removeDeviceBondWithAddress(
+                                                      bondedDevices[index]
+                                                          .address);
+                                              print(
+                                                  'Unpaired from ${bondedDevices[index].name} has succed');
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(SnackBar(
+                                                      content: Center(
+                                                          child: Text(
+                                                              "Device Un-Paired Successfully"))));
+                                            } else {
+                                              print(
+                                                  'Pairing with ${bondedDevices[index].name}...');
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(SnackBar(
+                                                      content: Center(
+                                                          child: Text(
+                                                              "Pairing with ${bondedDevices[index].name}..."))));
+                                              bonded =
+                                                  (await FlutterBluetoothSerial
+                                                          .instance
+                                                          .bondDeviceAtAddress(
+                                                              bondedDevices[
+                                                                      index]
+                                                                  .address)) ??
+                                                      false;
+                                              print(
+                                                  'Pairing with ${bondedDevices[index].name} has ${bonded ? 'succed' : 'failed'}.');
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(SnackBar(
+                                                content: Center(
+                                                    child: Text(
+                                                        "Device Paired Successfully")),
+                                                behavior:
+                                                    SnackBarBehavior.floating,
+                                              ));
+                                            }
+                                            setState(() {
+                                              results[results.indexOf(result)] =
+                                                  BluetoothDiscoveryResult(
+                                                      device: BluetoothDevice(
+                                                        name:
+                                                            bondedDevices[index]
+                                                                    .name ??
+                                                                '',
+                                                        address:
+                                                            bondedDevices[index]
+                                                                .address,
+                                                        type:
+                                                            bondedDevices[index]
+                                                                .type,
+                                                        bondState: bonded
+                                                            ? BluetoothBondState
+                                                                .bonded
+                                                            : BluetoothBondState
+                                                                .none,
+                                                      ),
+                                                      rssi: 0);
+                                            });
+                                          } catch (ex) {
+                                            showDialog(
+                                              context: context,
+                                              builder: (BuildContext context) {
+                                                return AlertDialog(
+                                                  title: const Text(
+                                                      'Error occurred while pairing'),
+                                                  content: Text(ex.toString()),
+                                                  actions: <Widget>[
+                                                    TextButton(
+                                                      child:
+                                                          const Text("Close"),
+                                                      onPressed: () {
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      },
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                          }
+                                        }),
+                                  ),
+                                );
+                              }
                             }
                           }),
                     ),

@@ -19,6 +19,8 @@ bool isUploaded = false;
 var response;
 var uploadResponse;
 var isConnected = false;
+var nodeStatus, nodeData;
+var isSchedule = true;
 
 enum SingingCharacter { D1, D2 }
 
@@ -56,7 +58,7 @@ class _DashboardState extends State<Dashboard> {
 
   void deleteAllSchedules() async {
     Services service = Services();
-    await service.deleteAllSchedule().then((value) {
+    await service.deleteAllSchedule(widget.device.name).then((value) {
       setState(() {
         getSchedules();
         print("Records:$schedules");
@@ -66,7 +68,10 @@ class _DashboardState extends State<Dashboard> {
   }
 
   void connect() async {
-    connection = await BluetoothConnection.toAddress(widget.device.address);
+    connection == null
+        ? connection =
+            await BluetoothConnection.toAddress(widget.device.address)
+        : null;
     setState(() {
       widget.device.isConnected || widget.device.isBonded
           ? isConnected = true
@@ -118,12 +123,18 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
-  Future<Map<String, dynamic>> fetchDataFromAPI() async {
+  Future<void> fetchNodeData() async {
     try {
-      http.Response response = await http.get(Uri.parse(apiUrl));
+      http.Response response = await http.get(
+        Uri.parse(apiUrl),
+        headers: {'macid': "${widget.device.address.toString()}"},
+      );
       if (response.statusCode == 200) {
         Map<String, dynamic> data = json.decode(response.body);
-        return data;
+        print('Dashboard: Api Response: ${data}');
+        setState(() {
+          nodeData = data;
+        });
       } else {
         throw Exception('Failed to fetch data: ${response.statusCode}');
       }
@@ -133,13 +144,41 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
+  Future<void> checkNodeStatus() async {
+    var headers = {'macid': widget.device.address.toString()};
+    var request = http.MultipartRequest(
+        'POST', Uri.parse('https://www.elorca.com/htbt/pulse'));
+    request.fields.addAll({'flags': '{"message":"Fetch node status"}'});
+    request.headers.addAll(headers);
+    http.StreamedResponse response = await request.send();
+    if (response.statusCode == 200) {
+      print(await response);
+      String responseBody = await response.stream.bytesToString();
+      print("Dashboard: Node Status Response: $responseBody");
+      setState(() {
+        nodeStatus = responseBody;
+      });
+    } else {
+      String responseBody = await response.stream.bytesToString();
+      print("Dashboard: Node Status Response: $responseBody");
+      dynamic jsonData = jsonDecode(responseBody);
+      setState(() {
+        nodeStatus = jsonData;
+        print(nodeStatus);
+      });
+    }
+  }
+
   late StreamController<DateTime> _timeStreamController;
   late Stream<DateTime> _timeStream;
+  var apiData;
 
   @override
   void initState() {
     super.initState();
     setState(() {
+      checkNodeStatus();
+      fetchNodeData();
       getSchedules();
       device1 = widget.device;
       widget.device.isConnected ? isConnected = true : isConnected = false;
@@ -240,6 +279,19 @@ class _DashboardState extends State<Dashboard> {
         scheduler[key] = value;
       }
     });
+    var statusCode;
+
+    setState(() {
+      statusCode = nodeStatus['data']['status'];
+      print(statusCode);
+    });
+    // var statusCode = 3;
+    var action;
+    if (statusCode == 3) {
+      action = "update_schedule";
+    } else {
+      action = "update_config_file";
+    }
 
     // Add scheduler and rtc_sync to config map
     config['scheduler'] = scheduler;
@@ -247,11 +299,14 @@ class _DashboardState extends State<Dashboard> {
 
     // Construct final JSON object
     Map<String, dynamic> jsonObject = {
-      'bootup': {},
-      'config': config,
+      'action': action,
+      'config_file': {
+        'bootup': statusCode == 3 ? {} : nodeData['data']['bootup'],
+        'config': statusCode == 3 ? config : nodeData['data']['config'],
+        if (statusCode != 3) 'mode_key': '',
+      }
     };
-    print(json.encode(jsonObject));
-    // Convert JSON object to string and return
+    print(jsonEncode(jsonObject));
     return json.encode(jsonObject);
   }
 
@@ -593,8 +648,6 @@ class _DashboardState extends State<Dashboard> {
                         ElevatedButton.icon(
                           onPressed: () async {
                             if (connection != null && connection!.isConnected) {
-                              var data = await fetchDataFromAPI();
-                              print(data);
                               sendMessage(
                                   generateJsonString(containerDataList));
                               updateAll();

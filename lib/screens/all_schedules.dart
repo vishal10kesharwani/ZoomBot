@@ -1,9 +1,11 @@
 import 'package:bluetooth/screens/all_device_schedule.dart';
 import 'package:bluetooth/utils/color_constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 
 import '../data/database_helper.dart';
 import '../models/schedule.dart';
+import '../utils/string_constants.dart';
 
 var device1;
 var epoch;
@@ -14,6 +16,7 @@ enum SingingCharacter { D1, D2 }
 String userName = '';
 List<String> receivedUserNames = [];
 List<Schedule> schedules = [];
+List<BluetoothDevice> bondedDevices = [];
 
 class ALlSchedules extends StatefulWidget {
   ALlSchedules({Key? key}) : super(key: key);
@@ -25,6 +28,22 @@ class ALlSchedules extends StatefulWidget {
 class _ALlSchedulesState extends State<ALlSchedules> {
   List<int?> receivedParameters = [];
   List<int?> paramVal = [];
+
+  Future<void> _getBondedDevices() async {
+    try {
+      List<BluetoothDevice> devices =
+          await FlutterBluetoothSerial.instance.getBondedDevices();
+      setState(() {
+        devices = devices
+            .where((device) => device.name?.startsWith(deviceName) ?? false)
+            .toList();
+        bondedDevices = devices;
+        print("Home: Bonded Devices:${bondedDevices.length}");
+      });
+    } catch (ex) {
+      print("Error retrieving bonded devices: $ex");
+    }
+  }
 
   void getSchedules() async {
     Services service = Services();
@@ -44,6 +63,7 @@ class _ALlSchedulesState extends State<ALlSchedules> {
     super.initState();
     setState(() {
       getSchedules();
+      _getBondedDevices();
     });
   }
 
@@ -95,7 +115,7 @@ class _ALlSchedulesState extends State<ALlSchedules> {
               child: Column(
                 children: [
                   //cards
-                  schedules.length > 0
+                  bondedDevices.length > 0
                       ? Padding(
                           padding: const EdgeInsets.only(
                               left: 15.0, right: 15, top: 20, bottom: 10),
@@ -105,17 +125,14 @@ class _ALlSchedulesState extends State<ALlSchedules> {
                             child: ListView.builder(
                               shrinkWrap:
                                   true, // Ensure ListView occupies only the space it needs
-                              itemCount: schedules.length,
+                              itemCount: bondedDevices.length,
                               itemBuilder: (context, index) {
-                                final schedule = schedules[index];
+                                final schedule = bondedDevices[index];
 
                                 return Padding(
                                   padding: const EdgeInsets.all(8.0),
                                   child: ContainerWidget(
-                                    day: schedule.day,
-                                    schedule: schedule.time,
                                     index: index,
-                                    action: schedule.action,
                                   ),
                                 );
                               },
@@ -143,44 +160,12 @@ class _ALlSchedulesState extends State<ALlSchedules> {
 }
 
 class ContainerWidget extends StatelessWidget {
-  final String day;
-  final String schedule;
   final int index;
-
-  final String action;
 
   const ContainerWidget({
     Key? key,
-    required this.day,
-    required this.schedule,
     required this.index,
-    required this.action,
   }) : super(key: key);
-
-  Future<void> deleteSchedule(int index, BuildContext context) async {
-    Services service = Services();
-    print(index);
-    Schedule schedule = Schedule(
-        schedules[index].device_name,
-        schedules[index].day,
-        schedules[index].time,
-        schedules[index].pin_no,
-        schedules[index].action,
-        schedules[index].is_uploaded,
-        "0",
-        "null",
-        "null",
-        schedules[index].created_by,
-        "null");
-
-    await service.updateSchedule(schedule, index + 1).then((value) {
-      Navigator.pushReplacementNamed(context, '/dashboard');
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("Schedule deleted successfully"),
-        behavior: SnackBarBehavior.floating,
-      ));
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +190,7 @@ class ContainerWidget extends StatelessWidget {
             ),
             Flexible(
               child: Text(
-                "${schedules[index].device_name}",
+                "${bondedDevices[index].name}",
                 textAlign: TextAlign.left,
                 style: TextStyle(
                   color: Colors.black,
@@ -219,10 +204,10 @@ class ContainerWidget extends StatelessWidget {
         trailing: IconButton(
             tooltip: ("Active device schedules"),
             onPressed: () {
-              print(schedules[index].device_name);
+              print(bondedDevices[index].name);
               Navigator.pushReplacement(context,
                   MaterialPageRoute(builder: (context) {
-                return AllDeviceSchedule(device: schedules[index].device_name);
+                return AllDeviceSchedule(device: bondedDevices[index].name!);
               }));
             },
             icon: Icon(
