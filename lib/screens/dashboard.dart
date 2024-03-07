@@ -68,16 +68,37 @@ class _DashboardState extends State<Dashboard> {
   }
 
   void connect() async {
-    connection == null
-        ? connection =
-            await BluetoothConnection.toAddress(widget.device.address)
-        : null;
-    setState(() {
-      widget.device.isConnected || widget.device.isBonded
-          ? isConnected = true
-          : isConnected = false;
-    });
-    listenForResponse();
+    try {
+      connection = await BluetoothConnection.toAddress(widget.device.address);
+
+      setState(() {
+        widget.device.isConnected || widget.device.isBonded
+            ? isConnected = true
+            : isConnected = false;
+      });
+
+      // Listen for responses after establishing the connection
+      connection?.input?.listen((Uint8List data) {
+        print('Received raw data: $data');
+
+        if (response == null) {
+          setState(() {
+            response = utf8.decode(data);
+          });
+        } else if (response != null) {
+          setState(() {
+            uploadResponse = utf8.decode(data);
+          });
+        } else {
+          return;
+        }
+
+        print(
+            'listenForResponse : response is $response   ${uploadResponse.toString()}');
+      });
+    } catch (e) {
+      print('Error connecting to Bluetooth: $e');
+    }
   }
 
   void sendMessage(String message) {
@@ -593,7 +614,7 @@ class _DashboardState extends State<Dashboard> {
                   SizedBox(height: 30),
                   Align(
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         ElevatedButton.icon(
                           onPressed: () {

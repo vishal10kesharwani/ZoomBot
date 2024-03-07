@@ -429,7 +429,7 @@ class _HomePageState extends State<HomePage> {
                                 );
                               }
                             } else {
-                              if (index < filteredDevices.length) {
+                              if (index < bondedDevices.length) {
                                 BluetoothDiscoveryResult result =
                                     BluetoothDiscoveryResult(
                                   device: bondedDevices[index],

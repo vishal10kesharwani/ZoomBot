@@ -302,13 +302,16 @@ class DynamicList extends State<NewSchedule> {
                                       color: Colors.black,
                                       size: 40,
                                     )),
-                                Text(
-                                  '${_selectedTime.hourOfPeriod} : ${_selectedTime.minute.toString().padLeft(2, '0')} ${_selectedTime.period.toString().split('.').last}',
-                                  style: TextStyle(
-                                      fontSize: 28.0,
-                                      color: primary,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1),
+                                GestureDetector(
+                                  onTap: () => _selectTime(context),
+                                  child: Text(
+                                    '${_selectedTime.hourOfPeriod} : ${_selectedTime.minute.toString().padLeft(2, '0')} ${_selectedTime.period.toString().split('.').last}',
+                                    style: TextStyle(
+                                        fontSize: 28.0,
+                                        color: primary,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1),
+                                  ),
                                 ),
                                 SizedBox(height: 20.0),
                                 IconButton(
