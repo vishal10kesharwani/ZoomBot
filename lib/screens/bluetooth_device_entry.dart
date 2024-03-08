@@ -1,10 +1,52 @@
+import 'dart:convert';
+
 import 'package:bluetooth/screens/dashboard.dart';
 import 'package:bluetooth/utils/string_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:http/http.dart' as http;
 
 class BluetoothDeviceListEntry extends ListTile {
   final BuildContext context;
+  var nodeStatus;
+
+  Future<void> checkNodeStatus(var device) async {
+    var headers = {'macid': device.address.toString()};
+    var request = http.MultipartRequest('POST',
+        Uri.parse(buildMode == "Test" ? testapiNodeStatus : apiNodeStatus));
+    request.fields.addAll({'flags': '{"message":"Fetch node status"}'});
+    request.headers.addAll(headers);
+    http.StreamedResponse response = await request.send();
+    if (response.statusCode == 200) {
+      print(await response);
+      String responseBody = await response.stream.bytesToString();
+      print("Home: Node Status Response: $responseBody");
+      device.isBonded
+          ? Navigator.of(context).push(MaterialPageRoute(
+              builder: (context) => Dashboard(
+                    device: device,
+                  )))
+          : null;
+    } else if (response.statusCode == 201) {
+      String responseBody = await response.stream.bytesToString();
+      print("Home: Node Status Response: $responseBody");
+      dynamic jsonData = jsonDecode(responseBody);
+
+      device.isBonded
+          ? Navigator.of(context).push(MaterialPageRoute(
+              builder: (context) => Dashboard(
+                    device: device,
+                  )))
+          : null;
+    } else if (response.statusCode == 404) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Node is not registered in server"),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ));
+    }
+  }
+
   BluetoothDeviceListEntry({
     super.key,
     required this.context,
@@ -48,15 +90,10 @@ class BluetoothDeviceListEntry extends ListTile {
                   : const SizedBox(width: 0, height: 0),
               device.isBonded
                   ? GestureDetector(
-                      onTap: () {
+                      onTap: () async {
                         print(
                             'BluetoothDeviceListEntry: Tapped on bonded icon for ${device.name}');
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => Dashboard(
-                                      device: device,
-                                    )));
+                        // handleTap(device);
                       },
                       child: Container(
                           padding: const EdgeInsets.all(8.0),
@@ -70,6 +107,11 @@ class BluetoothDeviceListEntry extends ListTile {
             ],
           ),
         );
+
+  void handleTap(BluetoothDevice device) async {
+    print('BluetoothDeviceListEntry: Tapped on bonded icon for ${device.name}');
+    await checkNodeStatus(device);
+  }
 
   static TextStyle _computeTextStyle(int rssi) {
     /**/ if (rssi >= -35) {

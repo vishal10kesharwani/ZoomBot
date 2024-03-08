@@ -40,10 +40,16 @@ class DynamicList extends State<NewSchedule> {
     ));
   }
 
-  Future<void> _selectTime(BuildContext context) async {
+  Future<void> inputTimeSelect() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime,
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null) {
@@ -52,6 +58,66 @@ class DynamicList extends State<NewSchedule> {
         print(_selectedTime);
       });
     }
+  }
+
+  var timeMode = true;
+  Future<void> _selectTime(BuildContext context) async {
+    final bool is24HourFormat = MediaQuery.of(context).alwaysUse24HourFormat;
+
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+      builder: (BuildContext context, Widget? child) {
+        return MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(alwaysUse24HourFormat: is24HourFormat),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedTime = picked;
+        print(_selectedTime);
+      });
+    }
+  }
+
+  dynamic showTimer() {
+    return Container(
+        child: Column(
+      children: [
+        Switch(
+            value: timeMode,
+            onChanged: (value) {
+              setState(() {
+                timeMode = !timeMode;
+              });
+            }),
+        if (!timeMode)
+          FutureBuilder<void>(
+            future: inputTimeSelect(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return CircularProgressIndicator(); // Placeholder until the future completes
+              }
+              return SizedBox(); // Placeholder for future completion
+            },
+          ),
+        if (timeMode)
+          FutureBuilder<void>(
+            future: _selectTime(context),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return CircularProgressIndicator(); // Placeholder until the future completes
+              }
+              return SizedBox(); // Placeholder for future completion
+            },
+          ),
+        // timeMode == true ? ,
+      ],
+    ));
   }
 
   @override
@@ -252,7 +318,7 @@ class DynamicList extends State<NewSchedule> {
                           SizedBox(
                             height: 20,
                           ),
-                          Align(
+                          const Align(
                             alignment: Alignment.topLeft,
                             child: Text(
                               "Choose Days",
@@ -303,9 +369,9 @@ class DynamicList extends State<NewSchedule> {
                                       size: 40,
                                     )),
                                 GestureDetector(
-                                  onTap: () => _selectTime(context),
+                                  onTap: () => showTimer(),
                                   child: Text(
-                                    '${_selectedTime.hourOfPeriod} : ${_selectedTime.minute.toString().padLeft(2, '0')} ${_selectedTime.period.toString().split('.').last}',
+                                    '${_selectedTime.hourOfPeriod}:${_selectedTime.minute.toString().padLeft(2, '0')} ${_selectedTime.period.toString().split('.').last}',
                                     style: TextStyle(
                                         fontSize: 28.0,
                                         color: primary,
@@ -315,12 +381,57 @@ class DynamicList extends State<NewSchedule> {
                                 ),
                                 SizedBox(height: 20.0),
                                 IconButton(
-                                    onPressed: () => _selectTime(context),
+                                    onPressed: () {
+                                      timeMode
+                                          ? _selectTime(context)
+                                          : inputTimeSelect();
+                                    },
                                     icon: Icon(
                                       Icons.arrow_drop_down_outlined,
                                       size: 40,
                                       color: primary,
-                                    ))
+                                    )),
+                                Spacer(),
+                                Column(
+                                  children: [
+                                    timeMode
+                                        ? Tooltip(
+                                            showDuration:
+                                                Duration(milliseconds: 200),
+                                            message: '12hr',
+                                            child: Text(
+                                              "12hr",
+                                              style: TextStyle(
+                                                  color: Colors.green,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          )
+                                        : Tooltip(
+                                            message: '24hr',
+                                            child: Text(
+                                              "24hr",
+                                              style: TextStyle(
+                                                  color: Colors.green,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                    Transform.scale(
+                                      scale: 0.8,
+                                      child: Switch(
+                                        value: timeMode,
+                                        onChanged: (bool value) {
+                                          setState(() {
+                                            timeMode = value;
+                                          });
+                                        },
+                                        activeColor: Colors.white,
+                                        activeTrackColor: primary,
+                                        inactiveThumbColor: Colors.black,
+                                        inactiveTrackColor: primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
                           ),

@@ -1,15 +1,21 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:bluetooth/screens/all_schedules.dart';
 import 'package:bluetooth/utils/string_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../models/schedule.dart';
 import '../utils/color_constants.dart';
 import 'bluetooth_device_entry.dart';
 import 'dashboard.dart';
+List<Schedule> schedules = [];
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -47,9 +53,67 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  bool _isConnected = true;
+
+  Future<void> execute(
+    InternetConnectionChecker internetConnectionChecker,
+  ) async {
+    print('''The statement 'this machine is connected to the Internet' is: ''');
+    final bool isConnected = await InternetConnectionChecker().hasConnection;
+    print(
+      isConnected.toString(),
+    );
+    print(
+      'Current status: ${await InternetConnectionChecker().connectionStatus}',
+    );
+    final StreamSubscription<InternetConnectionStatus> listener =
+        InternetConnectionChecker().onStatusChange.listen(
+      (InternetConnectionStatus status) {
+        switch (status) {
+          case InternetConnectionStatus.connected:
+            // ignore: avoid_print
+            print('Data connection is available.');
+            setState(() {
+              _isConnected = true;
+            });
+            break;
+          case InternetConnectionStatus.disconnected:
+            // ignore: avoid_print
+            print('You are disconnected from the internet.');
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text("You are disconnected from the internet."),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ));
+            setState(() {
+              _isConnected = false;
+            });
+            break;
+        }
+      },
+    );
+    await Future<void>.delayed(const Duration(minutes: 1));
+    await listener.cancel();
+  }
+
+  Future<void> checkInternet() async {
+    await execute(InternetConnectionChecker());
+
+    // Create customized instance which can be registered via dependency injection
+    final InternetConnectionChecker customInstance =
+        InternetConnectionChecker.createInstance(
+      checkTimeout: const Duration(seconds: 1),
+      checkInterval: const Duration(seconds: 1),
+    );
+
+    // Check internet connection with created instance
+    await execute(customInstance);
+  }
+
   @override
   void initState() {
     super.initState();
+    checkInternet();
     FlutterBluetoothSerial.instance.state.then((state) {
       setState(() {
         _getBondedDevices();
@@ -95,28 +159,35 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> checkGps() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        print('Location permissions are denied');
-      } else if (permission == LocationPermission.deniedForever) {
-        print("Location permissions are permanently denied");
-      } else {}
-    } else {}
+  Future<void> checkLocationPermission() async {
+    PermissionStatus status = await Permission.location.status;
+    if (status != PermissionStatus.granted) {
+      // Permission not granted, request it
+      PermissionStatus permissionStatus = await Permission.location.request();
+      if (permissionStatus == PermissionStatus.granted) {
+        // Permission granted, enable location services
+        // You can proceed with enabling location services here
+      } else {
+        // Permission denied by the user
+        // You can show a message or prompt the user to enable permissions
+      }
+    } else {
+      // Location permission already granted, enable location services
+      // You can proceed with enabling location services here
+    }
   }
 
   void _startDiscovery() async {
     if (_bluetoothState != BluetoothState.STATE_ON) {
       return;
     }
-    checkGps();
+    await checkLocationPermission();
 
     await requestBluetoothConnectPermission();
 
     var status = await Permission.bluetoothScan.request();
     if (status == PermissionStatus.granted) {
+      await checkLocationPermission();
       setState(() {
         isDiscovering = true;
       });
@@ -165,6 +236,101 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  var nodeStatus;
+
+  Future<void> checkNodeStatus(var device, String address) async {
+    var headers = {'macid': address};
+    var request = http.MultipartRequest('POST',
+        Uri.parse(buildMode == "Test" ? testapiNodeStatus : apiNodeStatus));
+    request.fields.addAll({'flags': '{"message":"Fetch node status"}'});
+    request.headers.addAll(headers);
+    http.StreamedResponse response = await request.send();
+    if (response.statusCode == 200) {
+      print(await response);
+      String responseBody = await response.stream.bytesToString();
+      print("Home: Node Status Response: $responseBody");
+      setState(() {
+        nodeStatus = responseBody;
+      });
+      device.isBonded
+          ? Navigator.of(context).push(MaterialPageRoute(
+              builder: (context) => Dashboard(
+                    device: device,
+                  )))
+          : null;
+    } else if (response.statusCode == 201) {
+      String responseBody = await response.stream.bytesToString();
+      print("Home: Node Status Response: $responseBody");
+      dynamic jsonData = jsonDecode(responseBody);
+      setState(() {
+        nodeStatus = jsonData;
+        print(nodeStatus);
+      });
+      device.isBonded
+          ? Navigator.of(context).push(MaterialPageRoute(
+              builder: (context) => Dashboard(
+                    device: device,
+                  )))
+          : null;
+    } else if (response.statusCode == 404) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Node is not registered in server"),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ));
+      setState(() {
+        nodeStatus = null;
+      });
+
+      // Navigator.of(context).push(MaterialPageRoute(
+      //     builder: (context) => Dashboard(
+      //           device: device,
+      //         )));
+    }
+  }
+
+  BluetoothConnection? connection;
+
+  void connect(BluetoothDevice device) async {
+    try {
+      // checkNodeStatus(device, "FC:B4:67:4E:C1:30");
+      print('Connecting to Bluetooth: ${device.address}');
+      connection = await BluetoothConnection.toAddress(device.address);
+
+      setState(() {
+        device.isConnected || device.isBonded
+            ? isConnected = true
+            : isConnected = false;
+      });
+
+      // Listen for responses after establishing the connection
+      await connection?.input?.listen((Uint8List data) {
+        if (data != null) {
+          setState(() async {
+            response = utf8.decode(data);
+            response = jsonDecode(response);
+            print("Home: MacId ${response}");
+            await checkNodeStatus(device, response['mac_id'].toString());
+          });
+        }
+        if (response == null) {
+          setState(() {
+            response = utf8.decode(data);
+          });
+        } else if (response != null) {
+          setState(() {
+            uploadResponse = utf8.decode(data);
+          });
+        }
+
+        print(
+            'Home: listenForResponse : response is $response   ${response.toString()}');
+      });
+    } catch (e) {
+      print('Error connecting to Bluetooth: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     print(results);
@@ -172,7 +338,6 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         backgroundColor: primary,
         actions: [
-          IconButton(onPressed: () {}, icon: Icon(Icons.search)),
           Padding(
             padding: const EdgeInsets.only(right: 10.0),
             child: IconButton(
@@ -183,6 +348,28 @@ class _HomePageState extends State<HomePage> {
                 }));
               },
               icon: Icon(Icons.devices_other),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 10.0),
+            child: Transform.scale(
+              scale: 0.8,
+              child: Tooltip(
+                message: 'Enable/Disable Network check',
+                child: Switch(
+                  value: networkCheck,
+                  onChanged: (bool value) {
+                    setState(() {
+                      networkCheck = value;
+                      print("Home: Network check: ${networkCheck.toString()}");
+                    });
+                  },
+                  activeColor: Colors.white,
+                  activeTrackColor: Colors.orange,
+                  inactiveThumbColor: Colors.black,
+                  inactiveTrackColor: primary,
+                ),
+              ),
             ),
           ),
         ],
@@ -335,15 +522,21 @@ class _HomePageState extends State<HomePage> {
                                         context: context,
                                         device: device,
                                         rssi: result.rssi,
-                                        onTap: () {
-                                          device.isBonded
-                                              ? Navigator.of(context).push(
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          Dashboard(
-                                                            device: device,
-                                                          )))
-                                              : null;
+                                        onTap: () async {
+                                          networkCheck ? checkInternet() : null;
+                                          if (networkCheck
+                                              ? _isConnected == false
+                                              : true) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(SnackBar(
+                                              content: Text(
+                                                  "You are not connected to Internet"),
+                                              behavior:
+                                                  SnackBarBehavior.floating,
+                                              duration: Duration(seconds: 2),
+                                            ));
+                                          }
+                                          connect(device);
                                         },
                                         onLongPress: () async {
                                           try {
@@ -446,17 +639,21 @@ class _HomePageState extends State<HomePage> {
                                         context: context,
                                         device: bondedDevices[index],
                                         rssi: 0,
-                                        onTap: () {
-                                          bondedDevices[index].isBonded
-                                              ? Navigator.of(context).push(
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          Dashboard(
-                                                            device:
-                                                                bondedDevices[
-                                                                    index],
-                                                          )))
-                                              : null;
+                                        onTap: () async {
+                                          networkCheck ? checkInternet() : null;
+                                          if (networkCheck
+                                              ? _isConnected == false
+                                              : true) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(SnackBar(
+                                              content: Text(
+                                                  "You are not connected to Internet"),
+                                              behavior:
+                                                  SnackBarBehavior.floating,
+                                              duration: Duration(seconds: 2),
+                                            ));
+                                          }
+                                          connect(bondedDevices[index]);
                                         },
                                         onLongPress: () async {
                                           try {

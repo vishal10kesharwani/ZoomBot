@@ -62,7 +62,7 @@ class _ALlSchedulesState extends State<ALlSchedules> {
   void initState() {
     super.initState();
     setState(() {
-      getSchedules();
+      // getSchedules();
       _getBondedDevices();
     });
   }
