@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:bluetooth/screens/dashboard.dart';
 import 'package:bluetooth/utils/string_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
@@ -21,23 +20,23 @@ class BluetoothDeviceListEntry extends ListTile {
       print(await response);
       String responseBody = await response.stream.bytesToString();
       print("Home: Node Status Response: $responseBody");
-      device.isBonded
-          ? Navigator.of(context).push(MaterialPageRoute(
-              builder: (context) => Dashboard(
-                    device: device,
-                  )))
-          : null;
+      // device.isBonded
+      //     ? Navigator.of(context).push(MaterialPageRoute(
+      //         builder: (context) => Dashboard(
+      //               device: device,
+      //             )))
+      //     : null;
     } else if (response.statusCode == 201) {
       String responseBody = await response.stream.bytesToString();
       print("Home: Node Status Response: $responseBody");
       dynamic jsonData = jsonDecode(responseBody);
 
-      device.isBonded
-          ? Navigator.of(context).push(MaterialPageRoute(
-              builder: (context) => Dashboard(
-                    device: device,
-                  )))
-          : null;
+      // device.isBonded
+      //     ? Navigator.of(context).push(MaterialPageRoute(
+      //         builder: (context) => Dashboard(
+      //               device: device, connection: ,
+      //             )))
+      //     : null;
     } else if (response.statusCode == 404) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text("Node is not registered in server"),

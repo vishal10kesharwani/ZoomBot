@@ -29,13 +29,14 @@ enum SingingCharacter { D1, D2 }
 List<ContainerData> containerDataList = [];
 
 String userName = '';
-List<String> receivedUserNames = [];
-
+List<Schedule> uniqueSchedules = [];
 List<Schedule> schedules = [];
 
 class Dashboard extends StatefulWidget {
   final BluetoothDevice device;
-  Dashboard({Key? key, required this.device}) : super(key: key);
+  dynamic connection;
+  Dashboard({Key? key, required this.device, required this.connection})
+      : super(key: key);
 
   @override
   State<Dashboard> createState() => _DashboardState();
@@ -95,12 +96,42 @@ class _DashboardState extends State<Dashboard> {
   void getSchedules() async {
     Services service = Services();
     await service.getAllSchedule().then((value) {
+      print("Dashboard : ${value}");
+      uniqueSchedules.clear();
       setState(() {
         schedules = value;
         print("Records:$schedules");
+        removeDuplicateRecords();
       });
     });
     setState(() {});
+  }
+
+  void getUniqueSchedules() async {
+    setState(() {
+      uniqueSchedules = uniqueSchedules;
+    });
+  }
+
+  void removeDuplicateRecords() {
+    for (int i = 0; i < schedules.length; i++) {
+      bool isDuplicate = false;
+      for (int j = i + 1; j < schedules.length; j++) {
+        if (schedules[i].time == schedules[j].time &&
+            schedules[i].action == schedules[j].action) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (!isDuplicate) {
+        uniqueSchedules
+            .add(schedules[i]); // Add unique schedule to the new list
+      }
+    }
+    setState(() {
+      schedules =
+          uniqueSchedules; // Update schedules with the new list of unique schedules
+    });
   }
 
   void deleteAllSchedules() async {
@@ -116,8 +147,11 @@ class _DashboardState extends State<Dashboard> {
 
   void connect() async {
     try {
-      connection = await BluetoothConnection.toAddress(widget.device.address);
-
+      connection?.isConnected == false
+          ? connection =
+              await BluetoothConnection.toAddress(widget.device.address)
+          : null;
+      print("Dashboard: Connection : ${connection}");
       setState(() {
         widget.device.isConnected || widget.device.isBonded
             ? isConnected = true
@@ -291,6 +325,12 @@ class _DashboardState extends State<Dashboard> {
   @override
   void initState() {
     super.initState();
+    getSchedules();
+    setState(() {
+      connection = widget.connection;
+    });
+
+    print("Dashboard: Initial Connection: ${widget.connection.isConnected}");
     networkCheck
         ? checkInternet().then((value) {
             checkNodeStatus();
@@ -304,16 +344,14 @@ class _DashboardState extends State<Dashboard> {
                 ));
               }
             });
-            setState(() {
-              getSchedules();
-              device1 = widget.device;
-              widget.device.isConnected
-                  ? isConnected = true
-                  : isConnected = false;
-              containerDataList = containerDataList;
-            });
           })
         : null;
+    setState(() {
+      getSchedules();
+      device1 = widget.device;
+      widget.device.isConnected ? isConnected = true : isConnected = false;
+      containerDataList = containerDataList;
+    });
     _timeStreamController = StreamController<DateTime>();
     _timeStream = _timeStreamController.stream;
     // Emit the current time periodically (every second)
@@ -388,26 +426,31 @@ class _DashboardState extends State<Dashboard> {
     print('Epoch time in seconds: $epochTimeInSeconds');
 
     // Iterate over containerDataList
+    getSchedules();
     schedules.forEach((scheduleData) {
       if (scheduleData != null &&
           scheduleData.status != "0" &&
           scheduleData.device_name == widget.device.name) {
         String time24HourFormat = time12to24Format(scheduleData.time);
-        String key =
-            "${scheduleData.day}-${time24HourFormat}-${scheduleData.pin_no}";
-        print(key);
+
+        // Create keys for both pins
+        String keyPin1 = "${scheduleData.day}-${time24HourFormat}-D1";
+        String keyPin2 = "${scheduleData.day}-${time24HourFormat}-D2";
+
+        print(keyPin1); // Print the keys for debugging purposes
+        print(keyPin2);
 
         // Calculate epoch value only if the day matches the current day
         if (day1.toUpperCase() == scheduleData.day) {
           int epoch = calculateEpochFromDateAndTime(now, now);
         }
-        // Construct value for the key
-        dynamic value = {};
-        // Determine which device (D1 or D2) is selected and include alarm status
-        value = (scheduleData.action == "true") ? "ON" : "OFF";
 
-        // Add key-value pair to scheduler map
-        scheduler[key] = value;
+        // Construct value for the keys
+        dynamic value = (scheduleData.action == "true") ? "ON" : "OFF";
+
+        // Insert key-value pairs for both pins
+        scheduler[keyPin1] = value;
+        scheduler[keyPin2] = value;
       }
     });
 
@@ -750,9 +793,9 @@ class _DashboardState extends State<Dashboard> {
                             child: ListView.builder(
                               shrinkWrap:
                                   true, // Ensure ListView occupies only the space it needs
-                              itemCount: schedules.length,
+                              itemCount: uniqueSchedules.length,
                               itemBuilder: (context, index) {
-                                final schedule = schedules[index];
+                                final schedule = uniqueSchedules[index];
 
                                 return (schedule.status == '1' &&
                                         schedule.device_name ==
@@ -762,7 +805,7 @@ class _DashboardState extends State<Dashboard> {
                                         schedule: schedule.time,
                                         index: index,
                                         action: schedule.action,
-                                        getSchedules: getSchedules,
+                                        getSchedules: getUniqueSchedules,
                                       )
                                     : SizedBox();
                               },
@@ -926,22 +969,28 @@ class ContainerWidget extends StatelessWidget {
   Future<void> deleteSchedule(int index, BuildContext context) async {
     Services service = Services();
     print(index);
-    Schedule schedule = Schedule(
-        schedules[index].device_name,
-        schedules[index].day,
-        schedules[index].time,
-        schedules[index].pin_no,
-        schedules[index].action,
-        schedules[index].is_uploaded,
-        "0",
-        "null",
-        "null",
-        schedules[index].created_by,
-        "null");
+    Schedule scheduleToDelete =
+        uniqueSchedules[index]; // Get the schedule to delete
 
-    await service.updateSchedule(schedule, index + 1).then((value) {
-      // Navigator.pushReplacementNamed(context, '/dashboard');
+// Iterate over the uniqueSchedules list to find and remove/update matching schedules
+    for (int i = 0; i < uniqueSchedules.length; i++) {
+      if (uniqueSchedules[i].time == scheduleToDelete.time &&
+          uniqueSchedules[i].action == scheduleToDelete.action) {
+// If the schedule matches, remove it
+        uniqueSchedules.removeAt(i);
+        i--; // Adjust index as the list size decreases after removing an element
+      }
+    }
+
+// Now, delete the schedule
+    await service
+        .updateSchedule(
+            scheduleToDelete, scheduleToDelete.time, scheduleToDelete.action)
+        .then((value) {
+// Update the UI
       getSchedules();
+
+// Show a snack bar indicating successful deletion
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Schedule deleted successfully"),
         behavior: SnackBarBehavior.floating,
@@ -988,7 +1037,7 @@ class ContainerWidget extends StatelessWidget {
                     day,
                     textAlign: TextAlign.left,
                     style: TextStyle(
-                      color: primary,
+                      color: (action == "true") ? Colors.green : Colors.red,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1008,17 +1057,17 @@ class ContainerWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Flexible(
-                    child: Text(
-                      "${schedules[index].pin_no}",
-                      textAlign: TextAlign.left,
-                      style: TextStyle(
-                        color: (action == "true") ? Colors.green : Colors.red,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                  // Flexible(
+                  //   child: Text(
+                  //     "${schedules[index].pin_no}",
+                  //     textAlign: TextAlign.left,
+                  //     style: TextStyle(
+                  //       color: (action == "true") ? Colors.green : Colors.red,
+                  //       fontSize: 16,
+                  //       fontWeight: FontWeight.bold,
+                  //     ),
+                  //   ),
+                  // ),
                 ],
               ),
             ),

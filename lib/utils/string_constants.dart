@@ -1,5 +1,5 @@
 String appName = "TW-ZoomBot";
-String deviceName = "ZS";
+String deviceName = "HC";
 String buildMode = "Test";
 String apiUrl = 'http://www.elorca.com/occf/config';
 String apiNodeStatus = "https://www.elorca.com/htbt/pulse";

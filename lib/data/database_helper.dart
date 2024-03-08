@@ -86,13 +86,14 @@ class Services {
     return res;
   }
 
-  Future<void> updateSchedule(Schedule Schedule, int id) async {
+  Future<void> updateSchedule(
+      Schedule schedule, String? time, String? action) async {
     var dbclient = await db;
     await dbclient.update(
       'Schedule',
-      Schedule.toMap(),
-      where: 'id = ?',
-      whereArgs: [id],
+      {'status': '0'}, // Update the status field to '0'
+      where: 'time = ? AND action = ?',
+      whereArgs: [time, action],
     );
     print("Schedule Updated");
   }

@@ -1,4 +1,3 @@
-import 'package:bluetooth/screens/dashboard.dart';
 import 'package:bluetooth/screens/homepage.dart';
 import 'package:bluetooth/screens/splash_screen.dart';
 import 'package:bluetooth/utils/string_constants.dart';
@@ -7,7 +6,6 @@ import 'package:flutter/material.dart';
 void main() => runApp(new MyApp());
 final routes = {
   '/home': (BuildContext context) => HomePage(),
-  '/dashboard': (BuildContext context) => Dashboard(device: device1),
   '/': (BuildContext context) => SplashScreen(),
 };
 

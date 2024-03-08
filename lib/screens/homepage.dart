@@ -14,8 +14,8 @@ import '../models/schedule.dart';
 import '../utils/color_constants.dart';
 import 'bluetooth_device_entry.dart';
 import 'dashboard.dart';
-List<Schedule> schedules = [];
 
+List<Schedule> schedules = [];
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -124,11 +124,11 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  @override
-  void dispose() {
-    _streamSubscription?.cancel();
-    super.dispose();
-  }
+  // @override
+  // void dispose() {
+  //   _streamSubscription?.cancel();
+  //   super.dispose();
+  // }
 
   Future<void> _toggleBluetooth() async {
     if (isBluetoothOn) {
@@ -236,6 +236,8 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  var connection;
+
   var nodeStatus;
 
   Future<void> checkNodeStatus(var device, String address) async {
@@ -252,11 +254,10 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         nodeStatus = responseBody;
       });
-      device.isBonded
+      device.isBonded && connection != null
           ? Navigator.of(context).push(MaterialPageRoute(
-              builder: (context) => Dashboard(
-                    device: device,
-                  )))
+              builder: (context) =>
+                  Dashboard(device: device, connection: connection)))
           : null;
     } else if (response.statusCode == 201) {
       String responseBody = await response.stream.bytesToString();
@@ -266,10 +267,11 @@ class _HomePageState extends State<HomePage> {
         nodeStatus = jsonData;
         print(nodeStatus);
       });
-      device.isBonded
+      device.isBonded && connection != null
           ? Navigator.of(context).push(MaterialPageRoute(
               builder: (context) => Dashboard(
                     device: device,
+                    connection: connection,
                   )))
           : null;
     } else if (response.statusCode == 404) {
@@ -289,14 +291,16 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  BluetoothConnection? connection;
-
   void connect(BluetoothDevice device) async {
     try {
       // checkNodeStatus(device, "FC:B4:67:4E:C1:30");
+      await checkNodeStatus(device, "00:00:13:00:3B:E3");
       print('Connecting to Bluetooth: ${device.address}');
-      connection = await BluetoothConnection.toAddress(device.address);
 
+      // connection.isConnected == false
+      //     ? connection = await BluetoothConnection.toAddress(device.address)
+      //     : null;
+      connection = await BluetoothConnection.toAddress(device.address);
       setState(() {
         device.isConnected || device.isBonded
             ? isConnected = true
@@ -310,7 +314,7 @@ class _HomePageState extends State<HomePage> {
             response = utf8.decode(data);
             response = jsonDecode(response);
             print("Home: MacId ${response}");
-            await checkNodeStatus(device, response['mac_id'].toString());
+            await checkNodeStatus(device, "00:00:13:00:3B:E3");
           });
         }
         if (response == null) {
