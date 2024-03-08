@@ -314,6 +314,7 @@ class _HomePageState extends State<HomePage> {
             response = utf8.decode(data);
             response = jsonDecode(response);
             print("Home: MacId ${response}");
+            // await checkNodeStatus(device, response['mac_id']);
             await checkNodeStatus(device, "00:00:13:00:3B:E3");
           });
         }
@@ -354,28 +355,31 @@ class _HomePageState extends State<HomePage> {
               icon: Icon(Icons.devices_other),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 10.0),
-            child: Transform.scale(
-              scale: 0.8,
-              child: Tooltip(
-                message: 'Enable/Disable Network check',
-                child: Switch(
-                  value: networkCheck,
-                  onChanged: (bool value) {
-                    setState(() {
-                      networkCheck = value;
-                      print("Home: Network check: ${networkCheck.toString()}");
-                    });
-                  },
-                  activeColor: Colors.white,
-                  activeTrackColor: Colors.orange,
-                  inactiveThumbColor: Colors.black,
-                  inactiveTrackColor: primary,
-                ),
-              ),
-            ),
-          ),
+          buildMode == "Test"
+              ? Padding(
+                  padding: const EdgeInsets.only(right: 10.0),
+                  child: Transform.scale(
+                    scale: 0.8,
+                    child: Tooltip(
+                      message: 'Enable/Disable Network check',
+                      child: Switch(
+                        value: networkCheck,
+                        onChanged: (bool value) {
+                          setState(() {
+                            networkCheck = value;
+                            print(
+                                "Home: Network check: ${networkCheck.toString()}");
+                          });
+                        },
+                        activeColor: Colors.white,
+                        activeTrackColor: Colors.orange,
+                        inactiveThumbColor: Colors.black,
+                        inactiveTrackColor: primary,
+                      ),
+                    ),
+                  ),
+                )
+              : SizedBox(),
         ],
       ),
       body: SingleChildScrollView(

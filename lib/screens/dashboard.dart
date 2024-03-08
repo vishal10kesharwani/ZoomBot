@@ -145,23 +145,35 @@ class _DashboardState extends State<Dashboard> {
     setState(() {});
   }
 
-  void connect() async {
+  // @override
+  // void dispose() {
+  //   connection?.cancel();
+  //   super.dispose();
+  // }
+
+  Future<void> connect() async {
     try {
-      connection?.isConnected == false
-          ? connection =
-              await BluetoothConnection.toAddress(widget.device.address)
-          : null;
-      print("Dashboard: Connection : ${connection}");
+      if (connection?.isConnected == false) {
+        connection = await BluetoothConnection.toAddress(widget.device.address);
+      }
+      print("Dashboard: Connection : ${connection?.isConnected}");
       setState(() {
-        widget.device.isConnected || widget.device.isBonded
-            ? isConnected = true
-            : isConnected = false;
+        connection!.isConnected ? isConnected = true : isConnected = false;
       });
-
-      // Listen for responses after establishing the connection
-      connection?.input?.listen((Uint8List data) {
+      if (connection != null) {
+        if (connection!.isConnected) {
+          setState(() {
+            isConnected = true;
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text("Connected to ${widget.device.name} ..."),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 1),
+            ));
+          });
+        }
+      }
+      await connection?.input?.listen((Uint8List data) {
         print('Received raw data: $data');
-
         if (response == null) {
           setState(() {
             response = utf8.decode(data);
@@ -173,7 +185,6 @@ class _DashboardState extends State<Dashboard> {
         } else {
           return;
         }
-
         print(
             'listenForResponse : response is $response   ${uploadResponse.toString()}');
       });
@@ -182,7 +193,7 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
-  void sendMessage(String message) {
+  Future<void> sendMessage(String message) async {
     connection?.output.add(Uint8List.fromList(utf8.encode(message + "\r\n")));
   }
 
@@ -211,7 +222,7 @@ class _DashboardState extends State<Dashboard> {
     });
   }
 
-  void updateAll() async {
+  Future<void> updateAll() async {
     if (response == uploadResponse) {
       setState(() {
         isUploaded = true;
@@ -234,16 +245,18 @@ class _DashboardState extends State<Dashboard> {
       if (response.statusCode == 200) {
         Map<String, dynamic> data = json.decode(response.body);
         print('Dashboard: Api Response: ${data}');
-        setState(() {
+        setState(() async {
           nodeData = data;
 
           if (connection != null && connection!.isConnected) {
-            sendMessage(generateJsonString(containerDataList, 6));
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
-              behavior: SnackBarBehavior.floating,
-              content: Center(child: Text("Config Uploded Successfully")),
-            ));
+            sendMessage(generateJsonString(containerDataList, 6)).then((value) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+                behavior: SnackBarBehavior.floating,
+                content: Center(child: Text("Config Uploded Successfully")),
+              ));
+            });
+
             // if (uploadResponse != null) {
             //   setState(() {
             //     uploadResponse = jsonDecode(uploadResponse);
@@ -257,6 +270,7 @@ class _DashboardState extends State<Dashboard> {
             //   ));
             // }
           } else {
+            await connectConfig(context);
             print("Bluetooth connection is not established.");
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
@@ -276,31 +290,6 @@ class _DashboardState extends State<Dashboard> {
     } catch (e) {
       print('Error: $e');
       rethrow;
-    }
-  }
-
-  Future<void> checkNodeStatus() async {
-    var headers = {'macid': "FC:B4:67:4E:C1:30"};
-    var request = http.MultipartRequest('POST',
-        Uri.parse(buildMode == "Test" ? testapiNodeStatus : apiNodeStatus));
-    request.fields.addAll({'flags': '{"message":"Fetch node status"}'});
-    request.headers.addAll(headers);
-    http.StreamedResponse response = await request.send();
-    if (response.statusCode == 200) {
-      print(await response);
-      String responseBody = await response.stream.bytesToString();
-      print("Dashboard: Node Status Response: $responseBody");
-      setState(() {
-        nodeStatus = responseBody;
-      });
-    } else {
-      String responseBody = await response.stream.bytesToString();
-      print("Dashboard: Node Status Response: $responseBody");
-      dynamic jsonData = jsonDecode(responseBody);
-      setState(() {
-        nodeStatus = jsonData;
-        print(nodeStatus);
-      });
     }
   }
 
@@ -324,6 +313,8 @@ class _DashboardState extends State<Dashboard> {
 
   @override
   void initState() {
+    connect();
+
     super.initState();
     getSchedules();
     setState(() {
@@ -331,21 +322,15 @@ class _DashboardState extends State<Dashboard> {
     });
 
     print("Dashboard: Initial Connection: ${widget.connection.isConnected}");
-    networkCheck
-        ? checkInternet().then((value) {
-            checkNodeStatus();
-            print("Dashboard: Network check: ${networkCheck.toString()}");
-            fetchNodeData().then((value) {
-              if (nodeData['data']['config']['mode_key'] == 6) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text("Node is not online, please Reconfig node"),
-                  behavior: SnackBarBehavior.floating,
-                  duration: Duration(seconds: 2),
-                ));
-              }
-            });
-          })
-        : null;
+    checkInternet();
+    print("Dashboard: Network check: ${networkCheck.toString()}");
+    if (nodeData['data']['config']['mode_key'] == 6) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Node is not online, please Reconfig node"),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ));
+    }
     setState(() {
       getSchedules();
       device1 = widget.device;
@@ -362,7 +347,6 @@ class _DashboardState extends State<Dashboard> {
     _timeStreamController.onCancel = () {
       _timeStreamController.close();
     };
-    // connect();
   }
 
   String time12to24Format(String time) {
@@ -516,6 +500,76 @@ class _DashboardState extends State<Dashboard> {
       ? Icon(Icons.sync,
           color: Colors.green) // Change to green color and synced icon
       : Icon(Icons.sync_disabled, color: Colors.red);
+
+  Future<void> connectAndSendMessage(BuildContext context) async {
+    // Maximum number of retries
+    const int maxRetries = 2;
+    int retryCount = 0;
+
+    while (retryCount < maxRetries) {
+      try {
+        await connect(); // Attempt connection
+        await sendMessage(
+            generateJsonString(containerDataList, 5)); // Send message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+            behavior: SnackBarBehavior.floating,
+            content: Center(child: Text("Data Uploaded successfully")),
+          ),
+        );
+        updateAll(); // Update all data
+        return; // Exit function if successful
+      } catch (error) {
+        print('Connection failed. Retrying... Attempt $retryCount');
+        retryCount++;
+      }
+    }
+
+    // Show error message if maximum retries reached
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+        behavior: SnackBarBehavior.floating,
+        content: Center(child: Text("Failed to connect and send data")),
+      ),
+    );
+  }
+
+  Future<void> connectConfig(BuildContext context) async {
+    // Maximum number of retries
+    const int maxRetries = 2;
+    int retryCount = 0;
+
+    while (retryCount < maxRetries) {
+      try {
+        await connect(); // Attempt connection
+        await sendMessage(
+            generateJsonString(containerDataList, 6)); // Send message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+            behavior: SnackBarBehavior.floating,
+            content: Center(child: Text("Data Uploaded successfully")),
+          ),
+        );
+        updateAll(); // Update all data
+        return; // Exit function if successful
+      } catch (error) {
+        print('Connection failed. Retrying... Attempt $retryCount');
+        retryCount++;
+      }
+    }
+
+    // Show error message if maximum retries reached
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+        behavior: SnackBarBehavior.floating,
+        content: Center(child: Text("Failed to connect and send data")),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -691,18 +745,6 @@ class _DashboardState extends State<Dashboard> {
                                         duration: Duration(seconds: 1),
                                       ));
                                       connect();
-                                      if (widget.device.isConnected) {
-                                        setState(() {
-                                          isConnected = true;
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(SnackBar(
-                                            content: Text(
-                                                "Connected to ${widget.device.name} ..."),
-                                            behavior: SnackBarBehavior.floating,
-                                            duration: Duration(seconds: 1),
-                                          ));
-                                        });
-                                      }
                                     },
                                     child: Text(
                                       "${(widget.device.name?.length)! > 5 ? widget.device.name?.substring(0, 6) : widget.device.name} ",
@@ -880,16 +922,20 @@ class _DashboardState extends State<Dashboard> {
                           onPressed: () async {
                             if (connection != null && connection!.isConnected) {
                               sendMessage(
-                                  generateJsonString(containerDataList, 5));
+                                      generateJsonString(containerDataList, 5))
+                                  .then((value) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(
+                                  margin: EdgeInsets.only(
+                                      left: 10, right: 10, bottom: 5),
+                                  behavior: SnackBarBehavior.floating,
+                                  content: Center(
+                                      child:
+                                          Text("Data Uploaded successfully")),
+                                ));
+                              });
                               updateAll();
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(
-                                margin: EdgeInsets.only(
-                                    left: 10, right: 10, bottom: 5),
-                                behavior: SnackBarBehavior.floating,
-                                content: Center(
-                                    child: Text("Data Uploaded successfully")),
-                              ));
+
                               // if (uploadResponse != null) {
                               //   setState(() {
                               //     uploadResponse = jsonDecode(uploadResponse);
@@ -907,6 +953,7 @@ class _DashboardState extends State<Dashboard> {
                               // }
                               print("Parameters sent successfully");
                             } else {
+                              await connectAndSendMessage(context);
                               print("Bluetooth connection is not established.");
                               ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
