@@ -87,13 +87,13 @@ class Services {
   }
 
   Future<void> updateSchedule(
-      Schedule schedule, String? time, String? action) async {
+      Schedule schedule, String? time, String? action, String? day) async {
     var dbclient = await db;
     await dbclient.update(
       'Schedule',
       {'status': '0'}, // Update the status field to '0'
-      where: 'time = ? AND action = ?',
-      whereArgs: [time, action],
+      where: 'time = ? AND action = ? AND day = ?',
+      whereArgs: [time, action, day],
     );
     print("Schedule Updated");
   }

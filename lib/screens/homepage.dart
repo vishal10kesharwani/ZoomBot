@@ -242,8 +242,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> checkNodeStatus(var device, String address) async {
     var headers = {'macid': address};
-    var request = http.MultipartRequest('POST',
-        Uri.parse(buildMode == "Test" ? testapiNodeStatus : apiNodeStatus));
+    var request = http.MultipartRequest('POST', Uri.parse(testapiNodeStatus));
     request.fields.addAll({'flags': '{"message":"Fetch node status"}'});
     request.headers.addAll(headers);
     http.StreamedResponse response = await request.send();
@@ -314,8 +313,15 @@ class _HomePageState extends State<HomePage> {
             response = utf8.decode(data);
             response = jsonDecode(response);
             print("Home: MacId ${response}");
-            // await checkNodeStatus(device, response['mac_id']);
-            await checkNodeStatus(device, "00:00:13:00:3B:E3");
+            if (response != null) {
+              await checkNodeStatus(device, response['mac_id']);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text("Bluetooth connection failed"),
+              ));
+            }
+
+            // await checkNodeStatus(device, "00:00:13:00:3B:E3");
           });
         }
         if (response == null) {

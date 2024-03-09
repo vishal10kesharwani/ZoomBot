@@ -118,7 +118,8 @@ class _DashboardState extends State<Dashboard> {
       bool isDuplicate = false;
       for (int j = i + 1; j < schedules.length; j++) {
         if (schedules[i].time == schedules[j].time &&
-            schedules[i].action == schedules[j].action) {
+            schedules[i].action == schedules[j].action &&
+            schedules[i].day == schedules[j].day) {
           isDuplicate = true;
           break;
         }
@@ -238,16 +239,17 @@ class _DashboardState extends State<Dashboard> {
 
   Future<void> fetchNodeData() async {
     try {
-      http.Response response = await http.get(
-        Uri.parse(buildMode == "Test" ? testapiUrl : apiUrl),
-        headers: {'macid': "FC:B4:67:4E:C1:30"},
+      print("response: $response");
+      http.Response response1 = await http.get(
+        Uri.parse(testapiUrl),
+        // headers: {'macid': response['mac_id']},
+        headers: {'macid': "00:00:13:00:3B:E3"},
       );
-      if (response.statusCode == 200) {
-        Map<String, dynamic> data = json.decode(response.body);
+      if (response1.statusCode == 200) {
+        Map<String, dynamic> data = json.decode(response1.body);
         print('Dashboard: Api Response: ${data}');
         setState(() async {
           nodeData = data;
-
           if (connection != null && connection!.isConnected) {
             sendMessage(generateJsonString(containerDataList, 6)).then((value) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -285,7 +287,7 @@ class _DashboardState extends State<Dashboard> {
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
         ));
-        throw Exception('Failed to fetch data: ${response.statusCode}');
+        throw Exception('Failed to fetch data: ${response1.statusCode}');
       }
     } catch (e) {
       print('Error: $e');
@@ -324,13 +326,7 @@ class _DashboardState extends State<Dashboard> {
     print("Dashboard: Initial Connection: ${widget.connection.isConnected}");
     checkInternet();
     print("Dashboard: Network check: ${networkCheck.toString()}");
-    if (nodeData['data']['config']['mode_key'] == 6) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("Node is not online, please Reconfig node"),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ));
-    }
+
     setState(() {
       getSchedules();
       device1 = widget.device;
@@ -935,22 +931,6 @@ class _DashboardState extends State<Dashboard> {
                                 ));
                               });
                               updateAll();
-
-                              // if (uploadResponse != null) {
-                              //   setState(() {
-                              //     uploadResponse = jsonDecode(uploadResponse);
-                              //   });
-                              //   ScaffoldMessenger.of(context)
-                              //       .showSnackBar(SnackBar(
-                              //     margin: EdgeInsets.only(
-                              //         left: 10, right: 10, bottom: 5),
-                              //     behavior: SnackBarBehavior.floating,
-                              //     content: Center(
-                              //         child: Text(
-                              //             jsonDecode(uploadResponse['message'])
-                              //                 .toString())),
-                              //   ));
-                              // }
                               print("Parameters sent successfully");
                             } else {
                               await connectAndSendMessage(context);
@@ -1022,7 +1002,8 @@ class ContainerWidget extends StatelessWidget {
 // Iterate over the uniqueSchedules list to find and remove/update matching schedules
     for (int i = 0; i < uniqueSchedules.length; i++) {
       if (uniqueSchedules[i].time == scheduleToDelete.time &&
-          uniqueSchedules[i].action == scheduleToDelete.action) {
+          uniqueSchedules[i].action == scheduleToDelete.action &&
+          uniqueSchedules[i].day == scheduleToDelete.day) {
 // If the schedule matches, remove it
         uniqueSchedules.removeAt(i);
         i--; // Adjust index as the list size decreases after removing an element
@@ -1031,8 +1012,8 @@ class ContainerWidget extends StatelessWidget {
 
 // Now, delete the schedule
     await service
-        .updateSchedule(
-            scheduleToDelete, scheduleToDelete.time, scheduleToDelete.action)
+        .updateSchedule(scheduleToDelete, scheduleToDelete.time,
+            scheduleToDelete.action, scheduleToDelete.day)
         .then((value) {
 // Update the UI
       getSchedules();
