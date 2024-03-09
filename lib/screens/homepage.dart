@@ -293,12 +293,8 @@ class _HomePageState extends State<HomePage> {
   void connect(BluetoothDevice device) async {
     try {
       // checkNodeStatus(device, "FC:B4:67:4E:C1:30");
-      await checkNodeStatus(device, "00:00:13:00:3B:E3");
+      // await checkNodeStatus(device, "00:00:13:00:3B:E3");
       print('Connecting to Bluetooth: ${device.address}');
-
-      // connection.isConnected == false
-      //     ? connection = await BluetoothConnection.toAddress(device.address)
-      //     : null;
       connection = await BluetoothConnection.toAddress(device.address);
       setState(() {
         device.isConnected || device.isBonded

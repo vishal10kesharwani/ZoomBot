@@ -242,8 +242,8 @@ class _DashboardState extends State<Dashboard> {
       print("response: $response");
       http.Response response1 = await http.get(
         Uri.parse(testapiUrl),
-        // headers: {'macid': response['mac_id']},
-        headers: {'macid': "00:00:13:00:3B:E3"},
+        headers: {'macid': response['mac_id']},
+        // headers: {'macid': "00:00:13:00:3B:E3"},
       );
       if (response1.statusCode == 200) {
         Map<String, dynamic> data = json.decode(response1.body);
