@@ -35,7 +35,13 @@ List<Schedule> schedules = [];
 class Dashboard extends StatefulWidget {
   final BluetoothDevice device;
   dynamic connection;
-  Dashboard({Key? key, required this.device, required this.connection})
+
+  var address;
+  Dashboard(
+      {Key? key,
+      required this.device,
+      required this.connection,
+      required this.address})
       : super(key: key);
 
   @override
@@ -239,10 +245,10 @@ class _DashboardState extends State<Dashboard> {
 
   Future<void> fetchNodeData() async {
     try {
-      print("response: $response");
+      print("Dashboard: response: $response");
       http.Response response1 = await http.get(
         Uri.parse(testapiUrl),
-        headers: {'macid': response['mac_id']},
+        headers: {'macid': widget.address.toString()},
         // headers: {'macid': "00:00:13:00:3B:E3"},
       );
       if (response1.statusCode == 200) {
@@ -291,6 +297,11 @@ class _DashboardState extends State<Dashboard> {
       }
     } catch (e) {
       print('Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Something Went Wrong"),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ));
       rethrow;
     }
   }
@@ -507,14 +518,17 @@ class _DashboardState extends State<Dashboard> {
         await connect(); // Attempt connection
         await sendMessage(
             generateJsonString(containerDataList, 5)); // Send message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
-            behavior: SnackBarBehavior.floating,
-            content: Center(child: Text("Data Uploaded successfully")),
-          ),
-        );
-        updateAll(); // Update all data
+        if (uploadResponse != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+              behavior: SnackBarBehavior.floating,
+              content: Center(child: Text("Data Uploaded successfully")),
+            ),
+          );
+          updateAll();
+        }
+        // Update all data
         return; // Exit function if successful
       } catch (error) {
         print('Connection failed. Retrying... Attempt $retryCount');

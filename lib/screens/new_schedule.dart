@@ -175,11 +175,21 @@ class DynamicList extends State<NewSchedule> {
       //     });
       //   }
       // }
-      bool allWeeksFalse = !values.any((element) => element == true);
+      bool allWeeksFalse = true; // Assume all elements are false initially
+
+      for (bool element in values) {
+        if (element == true) {
+          allWeeksFalse =
+              false; // If any element is true, set allWeeksFalse to false and exit loop
+          break;
+        }
+      }
+
       if (allWeeksFalse) {
         _showSnackBar("Please select at least one day");
         return; // Exit the function early
       }
+
       if (selectedData != "D1" && selectedData != "D2" && allWeeksFalse) {
         _showSnackBar("Please select a pin no. (D1 or D2)");
         return; // Exit the function early

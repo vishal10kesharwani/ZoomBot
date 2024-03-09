@@ -37,6 +37,16 @@ class _HomePageState extends State<HomePage> {
 
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
 
+  void _showSnackBar(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Center(child: Text(text)),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> _getBondedDevices() async {
     try {
       List<BluetoothDevice> devices =
@@ -241,52 +251,60 @@ class _HomePageState extends State<HomePage> {
   var nodeStatus;
 
   Future<void> checkNodeStatus(var device, String address) async {
-    var headers = {'macid': address};
-    var request = http.MultipartRequest('POST', Uri.parse(testapiNodeStatus));
-    request.fields.addAll({'flags': '{"message":"Fetch node status"}'});
-    request.headers.addAll(headers);
-    http.StreamedResponse response = await request.send();
-    if (response.statusCode == 200) {
-      print(await response);
-      String responseBody = await response.stream.bytesToString();
-      print("Home: Node Status Response: $responseBody");
-      setState(() {
-        nodeStatus = responseBody;
-      });
-      device.isBonded && connection != null
-          ? Navigator.of(context).push(MaterialPageRoute(
-              builder: (context) =>
-                  Dashboard(device: device, connection: connection)))
-          : null;
-    } else if (response.statusCode == 201) {
-      String responseBody = await response.stream.bytesToString();
-      print("Home: Node Status Response: $responseBody");
-      dynamic jsonData = jsonDecode(responseBody);
-      setState(() {
-        nodeStatus = jsonData;
-        print(nodeStatus);
-      });
-      device.isBonded && connection != null
-          ? Navigator.of(context).push(MaterialPageRoute(
-              builder: (context) => Dashboard(
-                    device: device,
-                    connection: connection,
-                  )))
-          : null;
-    } else if (response.statusCode == 404) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("Node is not registered in server"),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ));
-      setState(() {
-        nodeStatus = null;
-      });
+    try {
+      var headers = {'macid': address};
+      var request = http.MultipartRequest('POST', Uri.parse(testapiNodeStatus));
+      request.fields.addAll({'flags': '{"message":"Fetch node status"}'});
+      request.headers.addAll(headers);
+      http.StreamedResponse response = await request.send();
+      if (response.statusCode == 200) {
+        print(await response);
+        String responseBody = await response.stream.bytesToString();
+        print("Home: Node Status Response: $responseBody");
+        setState(() {
+          nodeStatus = responseBody;
+        });
+        device.isBonded && connection != null
+            ? Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => Dashboard(
+                      device: device,
+                      connection: connection,
+                      address: address,
+                    )))
+            : null;
+      } else if (response.statusCode == 201) {
+        String responseBody = await response.stream.bytesToString();
+        print("Home: Node Status Response: $responseBody");
+        dynamic jsonData = jsonDecode(responseBody);
+        setState(() {
+          nodeStatus = jsonData;
+          print(nodeStatus);
+        });
+        device.isBonded && connection != null
+            ? Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => Dashboard(
+                      device: device,
+                      connection: connection,
+                      address: address,
+                    )))
+            : _showSnackBar("Device connection error, please tap again");
+      } else if (response.statusCode == 404) {
+        _showSnackBar(
+            "Node is not registered on server, please use another device");
+        setState(() {
+          nodeStatus = null;
+        });
 
-      // Navigator.of(context).push(MaterialPageRoute(
-      //     builder: (context) => Dashboard(
-      //           device: device,
-      //         )));
+        // Navigator.of(context).push(MaterialPageRoute(
+        //     builder: (context) => Dashboard(
+        //           device: device,
+        //         )));
+      } else {
+        _showSnackBar("Something went wrong, please try again");
+      }
+    } on Exception catch (e) {
+      // TODO
+      _showSnackBar(e.toString());
     }
   }
 
@@ -312,9 +330,7 @@ class _HomePageState extends State<HomePage> {
             if (response != null) {
               await checkNodeStatus(device, response['mac_id']);
             } else {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text("Bluetooth connection failed"),
-              ));
+              _showSnackBar("Bluetooth connection error, please try again");
             }
 
             // await checkNodeStatus(device, "00:00:13:00:3B:E3");
@@ -335,6 +351,7 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       print('Error connecting to Bluetooth: $e');
+      _showSnackBar("Bluetooth connection error, please try again");
     }
   }
 
