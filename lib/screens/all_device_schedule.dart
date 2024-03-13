@@ -73,88 +73,92 @@ class _AllDeviceScheduleState extends State<AllDeviceSchedule> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 20.0),
-          child: Column(
-            children: [
-              Container(
-                width: 200,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: Colors.black, width: 1),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 5,
-                      ),
-                      Text(
-                        "${(widget.device.length) > 5 ? widget.device.substring(0, 6) : widget.device} ",
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 20.0),
+            child: Column(
+              children: [
+                Container(
+                  width: 200,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    border: Border.all(color: Colors.black, width: 1),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 5,
                         ),
-                      ),
-                      Icon(
-                        isUploaded ? Icons.sync : Icons.sync_disabled,
-                        color: isUploaded ? Colors.green : Colors.red,
-                      ),
+                        Text(
+                          "${(widget.device.length) > 5 ? widget.device.substring(0, 6) : widget.device} ",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Icon(
+                          isUploaded ? Icons.sync : Icons.sync_disabled,
+                          color: isUploaded ? Colors.green : Colors.red,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding:
+                      const EdgeInsets.only(left: 20.0, right: 20.0, top: 10),
+                  child: Column(
+                    children: [
+                      //cards
+                      schedules.length > 0
+                          ? Padding(
+                              padding: const EdgeInsets.only(
+                                  left: 15.0, right: 15, top: 20, bottom: 10),
+                              child: Container(
+                                height: MediaQuery.of(context).size.height *
+                                    0.7, // Adjust height as needed
+                                child: ListView.builder(
+                                  shrinkWrap:
+                                      true, // Ensure ListView occupies only the space it needs
+                                  itemCount: schedules.length,
+                                  itemBuilder: (context, index) {
+                                    final schedule = schedules[index];
+
+                                    return (schedule.status == '1' &&
+                                            schedule.device_name ==
+                                                widget.device)
+                                        ? ContainerWidget(
+                                            day: schedule.day,
+                                            schedule: schedule.time,
+                                            index: index,
+                                            action: schedule.action,
+                                          )
+                                        : SizedBox();
+                                  },
+                                ),
+                              ),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.only(
+                                  left: 15.0, right: 15, top: 20, bottom: 10),
+                              child: Container(
+                                height: MediaQuery.of(context).size.height *
+                                    0.5, // Adjust height as needed
+                                child: Text("No Schedules Created"),
+                              ),
+                            ),
+                      SizedBox(height: 30),
                     ],
                   ),
                 ),
-              ),
-              Padding(
-                padding:
-                    const EdgeInsets.only(left: 20.0, right: 20.0, top: 10),
-                child: Column(
-                  children: [
-                    //cards
-                    schedules.length > 0
-                        ? Padding(
-                            padding: const EdgeInsets.only(
-                                left: 15.0, right: 15, top: 20, bottom: 10),
-                            child: Container(
-                              height: MediaQuery.of(context).size.height *
-                                  0.7, // Adjust height as needed
-                              child: ListView.builder(
-                                shrinkWrap:
-                                    true, // Ensure ListView occupies only the space it needs
-                                itemCount: schedules.length,
-                                itemBuilder: (context, index) {
-                                  final schedule = schedules[index];
-
-                                  return (schedule.status == '1' &&
-                                          schedule.device_name == widget.device)
-                                      ? ContainerWidget(
-                                          day: schedule.day,
-                                          schedule: schedule.time,
-                                          index: index,
-                                          action: schedule.action,
-                                        )
-                                      : SizedBox();
-                                },
-                              ),
-                            ),
-                          )
-                        : Padding(
-                            padding: const EdgeInsets.only(
-                                left: 15.0, right: 15, top: 20, bottom: 10),
-                            child: Container(
-                              height: MediaQuery.of(context).size.height *
-                                  0.5, // Adjust height as needed
-                              child: Text("No Schedules Created"),
-                            ),
-                          ),
-                    SizedBox(height: 30),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

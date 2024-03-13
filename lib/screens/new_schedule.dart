@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:intl/intl.dart';
 import 'package:weekday_selector/weekday_selector.dart';
 
 import '../data/database_helper.dart';
@@ -11,6 +12,7 @@ TimeOfDay _selectedTime = TimeOfDay.now();
 bool light0 = true;
 DateTime? selectedDate = DateTime.now();
 int? userid;
+bool allWeeksFalse = true;
 
 class NewSchedule extends StatefulWidget {
   final BluetoothDevice device;
@@ -135,73 +137,35 @@ class DynamicList extends State<NewSchedule> {
   final end = dateRange.end;
   final values = <bool>[false, false, false, false, false, false, false];
 
-  void submit(selectedData) async {
-    setState(() {
-      _time =
-          "${_selectedTime.hourOfPeriod.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')} ${_selectedTime.period.toString().toUpperCase().split('.').last}";
+  Future<void> submit(selectedData) async {
+    _time =
+        "${_selectedTime.hourOfPeriod.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')} ${_selectedTime.period.toString().toUpperCase().split('.').last}";
+    // Assume all elements are false initially
 
-      // for (int i = 0; i < values.length; i++) {
-      //   if (values[i]) {
-      //     var newSchedule = ContainerData(
-      //       day: _getDayOfWeek(i + 1),
-      //       schedule: _time!,
-      //       selectedD1: _groupValue == 0,
-      //       selectedD2: _groupValue == 1,
-      //       alarmStatus: light0,
-      //     );
-      //     print("$i day: ${newSchedule.day}" +
-      //         "values[i]: " +
-      //         values[i].toString() +
-      //         "light0: " +
-      //         light0.toString() +
-      //         "selectedD1: " +
-      //         _groupValue.toString() +
-      //         "selectedD2: " +
-      //         _groupValue.toString() +
-      //         "schedule: " +
-      //         _time.toString());
-      //
-      //     // Add the newSchedule to containerDataList
-      //     setState(() {
-      //       containerDataList.add(newSchedule);
-      //       // WidgetsBinding.instance
-      //       //     .addPostFrameCallback((_) {
-      //       //   Navigator.pushReplacement(
-      //       //       context,
-      //       //       MaterialPageRoute(
-      //       //           builder: (_) => Dashboard(
-      //       //               device: widget.device)));
-      //       // });
-      //     });
-      //   }
-      // }
-      bool allWeeksFalse = true; // Assume all elements are false initially
-
-      for (bool element in values) {
-        if (element == true) {
-          allWeeksFalse =
-              false; // If any element is true, set allWeeksFalse to false and exit loop
-          break;
-        }
+    for (bool element in values) {
+      if (element == true) {
+        allWeeksFalse =
+            false; // If any element is true, set allWeeksFalse to false and exit loop
+        break;
       }
+    }
 
-      if (allWeeksFalse) {
-        _showSnackBar("Please select at least one day");
-        return; // Exit the function early
-      }
-
-      if (selectedData != "D1" && selectedData != "D2" && allWeeksFalse) {
-        _showSnackBar("Please select a pin no. (D1 or D2)");
-        return; // Exit the function early
-      }
+    if (allWeeksFalse) {
+      _showSnackBar("Please select at least one day");
+      return; // Exit the function early
+    } else if (selectedData != "D1" && selectedData != "D2") {
+      _showSnackBar("Please select a pin no. (D1 or D2)");
+      return; // Exit the function early
+    } else {
       String selectedDevice;
+      Services service = Services();
       for (int i = 0; i < values.length; i++) {
         if (values[i]) {
           var newSchedule = Schedule(
               widget.device.name,
               _getDayOfWeek(i),
               _time!,
-              selectedDevice = selectedData == "D1" ? "D1" : "D2",
+              "D1",
               light0.toString(),
               "false",
               "1",
@@ -209,36 +173,55 @@ class DynamicList extends State<NewSchedule> {
               "null",
               widget.device.name,
               "null");
-          print(newSchedule.device_name +
-              newSchedule.day +
-              newSchedule.time +
-              newSchedule.pin_no +
-              newSchedule.action +
-              newSchedule.is_uploaded +
-              newSchedule.status +
-              newSchedule.created_at +
-              newSchedule.updated_at +
-              newSchedule.created_by +
-              newSchedule.updated_by);
-
-          Services service = Services();
-
-          // setState(() {
-          //   containerDataList.add(newSchedule);
-          //   // WidgetsBinding.instance
-          //   //     .addPostFrameCallback((_) {
-          //   //   Navigator.pushReplacement(
-          //   //       context,
-          //   //       MaterialPageRoute(
-          //   //           builder: (_) => Dashboard(
-          //   //               device: widget.device)));
-          //   // });
-          // });
+          // print(newSchedule.device_name +
+          //     newSchedule.day +
+          //     newSchedule.time +
+          //     newSchedule.pin_no +
+          //     newSchedule.action +
+          //     newSchedule.is_uploaded +
+          //     newSchedule.status +
+          //     newSchedule.created_at +
+          //     newSchedule.updated_at +
+          //     newSchedule.created_by +
+          //     newSchedule.updated_by);
 
           var res = service.insertSchedule(newSchedule);
+          var newSchedule2 = Schedule(
+              widget.device.name,
+              _getDayOfWeek(i),
+              _time!,
+              "D2",
+              light0.toString(),
+              "false",
+              "1",
+              "null",
+              "null",
+              widget.device.name,
+              "null");
+          // print(newSchedule.device_name +
+          //     newSchedule.day +
+          //     newSchedule.time +
+          //     newSchedule.pin_no +
+          //     newSchedule.action +
+          //     newSchedule.is_uploaded +
+          //     newSchedule.status +
+          //     newSchedule.created_at +
+          //     newSchedule.updated_at +
+          //     newSchedule.created_by +
+          //     newSchedule.updated_by);
+
+          res = service.insertSchedule(newSchedule2);
         }
       }
-    });
+      bool snackBarShown = false;
+      print("Schedule Added");
+      if (!allWeeksFalse && !snackBarShown) {
+        _showSnackBar("Schedule Added Successfully");
+        setState(() {
+          snackBarShown = true;
+        });
+      }
+    }
   }
 
   String intDayToEnglish(int day) {
@@ -552,18 +535,14 @@ class DynamicList extends State<NewSchedule> {
                                 onPressed: () {
                                   if (selectedD1 || selectedD2) {
                                     if (selectedD1 && selectedD2) {
-                                      submit("D1");
-                                      submit("D2");
-                                      print("Schedule Added");
-                                      _showSnackBar(
-                                          "Schedule Added Successfully");
-                                      Navigator.pop(context, false);
+                                      submit("D2").then((value) {
+                                        Navigator.pop(context);
+                                      });
                                     } else {
-                                      submit(selectedD1 ? "D1" : "D2");
-                                      print("Schedule Added");
-                                      _showSnackBar(
-                                          "Schedule Added Successfully");
-                                      Navigator.pop(context, false);
+                                      submit(selectedD1 ? "D1" : "D2")
+                                          .then((value) {
+                                        Navigator.pop(context, false);
+                                      });
                                     }
                                   }
                                 },
@@ -617,7 +596,10 @@ class DynamicList extends State<NewSchedule> {
       case 7:
         return "Sun";
       default:
-        return "";
+        return "Sun";
+        // default:
+        return DateFormat('E').format(DateTime.now()).toString();
+        ;
     }
   }
 

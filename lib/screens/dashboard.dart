@@ -19,7 +19,7 @@ var epoch;
 bool isUploaded = false;
 var response;
 var uploadResponse;
-var isConnected = false;
+var isConnected = true;
 var nodeStatus, nodeData;
 var isSchedule = true;
 var isNodeOnline = true;
@@ -37,11 +37,7 @@ class Dashboard extends StatefulWidget {
   dynamic connection;
 
   var address;
-  Dashboard(
-      {Key? key,
-      required this.device,
-      required this.connection,
-      required this.address})
+  Dashboard({Key? key, required this.device, this.connection, this.address})
       : super(key: key);
 
   @override
@@ -196,7 +192,7 @@ class _DashboardState extends State<Dashboard> {
             'listenForResponse : response is $response   ${uploadResponse.toString()}');
       });
     } catch (e) {
-      print('Error connecting to Bluetooth: $e');
+      print('Error connecting to Bluetooth');
     }
   }
 
@@ -244,65 +240,61 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Future<void> fetchNodeData() async {
-    try {
-      print("Dashboard: response: $response");
-      http.Response response1 = await http.get(
-        Uri.parse(testapiUrl),
-        headers: {'macid': widget.address.toString()},
-        // headers: {'macid': "00:00:13:00:3B:E3"},
-      );
-      if (response1.statusCode == 200) {
-        Map<String, dynamic> data = json.decode(response1.body);
-        print('Dashboard: Api Response: ${data}');
-        setState(() async {
-          nodeData = data;
-          if (connection != null && connection!.isConnected) {
-            sendMessage(generateJsonString(containerDataList, 6)).then((value) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
-                behavior: SnackBarBehavior.floating,
-                content: Center(child: Text("Config Uploded Successfully")),
-              ));
-            });
+    print("Dashboard: response: $response");
+    http.Response response1 = await http.get(
+      Uri.parse(testapiUrl),
+      headers: {'macid': widget.address.toString()},
+      // headers: {'macid': "00:00:13:00:3B:E3"},
+    );
+    if (response1.statusCode == 200) {
+      Map<String, dynamic> data = json.decode(response1.body);
+      print('Dashboard: Api Response: ${data}');
+      setState(() async {
+        nodeData = data;
+        if (connection != null &&
+            connection!.isConnected &&
+            (response != null || uploadResponse != null)) {
+          sendMessage(generateJsonString(containerDataList, 6)).then((value) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+              behavior: SnackBarBehavior.floating,
+              content: Center(
+                  child: Text(
+                "Config Uploded Successfully, please reconnect device by tapping on device name after some seconds.",
+                textAlign: TextAlign.center,
+              )),
+            ));
+          });
 
-            // if (uploadResponse != null) {
-            //   setState(() {
-            //     uploadResponse = jsonDecode(uploadResponse);
-            //   });
-            //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            //     margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
-            //     behavior: SnackBarBehavior.floating,
-            //     content: Center(
-            //         child: Text(
-            //             jsonDecode(uploadResponse['message']).toString())),
-            //   ));
-            // }
-          } else {
-            await connectConfig(context);
-            print("Bluetooth connection is not established.");
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
-                behavior: SnackBarBehavior.floating,
-                content: Center(
-                    child: Text("Bluetooth connection is not established."))));
-          }
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("Node is not online, please Reconfig node"),
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
-        ));
-        throw Exception('Failed to fetch data: ${response1.statusCode}');
-      }
-    } catch (e) {
-      print('Error: $e');
+          // if (uploadResponse != null) {
+          //   setState(() {
+          //     uploadResponse = jsonDecode(uploadResponse);
+          //   });
+          //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          //     margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+          //     behavior: SnackBarBehavior.floating,
+          //     content: Center(
+          //         child: Text(
+          //             jsonDecode(uploadResponse['message']).toString())),
+          //   ));
+          // }
+        } else {
+          await connectConfig(context);
+          print("Bluetooth connection is not established.");
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+              behavior: SnackBarBehavior.floating,
+              content: Center(
+                  child: Text("Bluetooth connection is not established."))));
+        }
+      });
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("Something Went Wrong"),
+        content: Text("Node is not online, please Reconfig node"),
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 2),
       ));
-      rethrow;
+      throw Exception('Failed to fetch data: ${response1.statusCode}');
     }
   }
 
@@ -326,8 +318,6 @@ class _DashboardState extends State<Dashboard> {
 
   @override
   void initState() {
-    connect();
-
     super.initState();
     getSchedules();
     setState(() {
@@ -560,7 +550,11 @@ class _DashboardState extends State<Dashboard> {
           SnackBar(
             margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
             behavior: SnackBarBehavior.floating,
-            content: Center(child: Text("Data Uploaded successfully")),
+            content: Center(
+                child: Text(
+              "Config Uploded Successfully, please reconnect device by tapping on device name after some seconds.",
+              textAlign: TextAlign.center,
+            )),
           ),
         );
         updateAll(); // Update all data
@@ -586,42 +580,51 @@ class _DashboardState extends State<Dashboard> {
     SingingCharacter? _character = SingingCharacter.D1;
 
     return Scaffold(
-      extendBody: true,
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: primary,
         leading: IconButton(
-          padding: const EdgeInsets.only(left: 20.0, top: 20),
+          padding: const EdgeInsets.only(left: 20.0, top: 10),
           icon: Icon(Icons.arrow_back_ios),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
+        title: Padding(
+          padding: const EdgeInsets.only(top: 20.0, bottom: 10),
+          child: Text(
+            "Scheduled charts",
+            textAlign: TextAlign.start,
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 25,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
         actions: [
-          buildMode == "Test"
-              ? StreamBuilder<DateTime>(
-                  stream: _timeStream,
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      String formattedTime =
-                          DateFormat('hh:mm:ss').format(snapshot.data!);
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 20.0, top: 10),
-                        child: Text(
-                          "$formattedTime",
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 18,
-                          ),
-                        ),
-                      );
-                    } else {
-                      return Text(
-                          'Loading...'); // Placeholder text while waiting for data
-                    }
-                  },
-                )
-              : SizedBox(),
+          StreamBuilder<DateTime>(
+            stream: _timeStream,
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                String formattedTime =
+                    DateFormat('hh:mm:ss').format(snapshot.data!);
+                return Padding(
+                  padding:
+                      const EdgeInsets.only(right: 20.0, top: 20, bottom: 10),
+                  child: Text(
+                    "$formattedTime",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 18,
+                    ),
+                  ),
+                );
+              } else {
+                return Text(
+                    'Loading...'); // Placeholder text while waiting for data
+              }
+            },
+          )
         ],
       ),
       floatingActionButton: Padding(
@@ -691,56 +694,42 @@ class _DashboardState extends State<Dashboard> {
         child: Column(
           children: [
             Container(
-              // Adjust height as needed
               child: Container(
                 color: primary,
                 width: double.infinity,
                 child: Padding(
-                  padding: const EdgeInsets.only(
-                    left: 60.0,
-                    top: 55,
-                  ),
+                  padding: const EdgeInsets.only(left: 10.0, right: 10),
                   child: Column(
                     children: [
-                      Align(
-                        alignment: Alignment.topLeft,
-                        child: Text(
-                          "Scheduled charts",
-                          textAlign: TextAlign.start,
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 25,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
                       SizedBox(
                         height: 20,
                       ),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(
-                              right: 10.0,
                               bottom: 10,
                             ),
                             child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 10),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(30),
                                 border:
                                     Border.all(color: Colors.black, width: 1),
                               ),
                               height: 40,
-                              width: 140,
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
                                 children: [
                                   Icon(
-                                    isConnected
+                                    connection!.isConnected
                                         ? Icons.bluetooth_connected
                                         : Icons.bluetooth_disabled,
-                                    color:
-                                        isConnected ? Colors.green : Colors.red,
+                                    color: connection!.isConnected
+                                        ? Colors.green
+                                        : Colors.red,
                                   ),
                                   SizedBox(
                                     width: 5,
@@ -772,52 +761,63 @@ class _DashboardState extends State<Dashboard> {
                                     color:
                                         isUploaded ? Colors.green : Colors.red,
                                   ),
+                                  VerticalDivider(
+                                    color: Colors.black,
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      networkCheck ? checkInternet() : null;
+                                      // if (isConnected) {
+                                      // networkCheck
+                                      //     ?
+                                      fetchNodeData().then((value) {
+                                        if (nodeData['data']['mode_key'] == 5) {
+                                          sendMessage(generateJsonString(
+                                              containerDataList, 6));
+                                        }
+                                      });
+                                      // : ScaffoldMessenger.of(context)
+                                      //     .showSnackBar(const SnackBar(
+                                      //     content: Text("Network check if off"),
+                                      //     behavior: SnackBarBehavior.floating,
+                                      //     duration: Duration(seconds: 2),
+                                      //   ));
+                                      // } else {
+                                      //   ScaffoldMessenger.of(context)
+                                      //       .showSnackBar(SnackBar(
+                                      //     content:
+                                      //         Text("You are not connected to internet"),
+                                      //     behavior: SnackBarBehavior.floating,
+                                      //     duration: Duration(seconds: 2),
+                                      //   ));
+                                      // }
+                                    },
+                                    icon: Icon(Icons.refresh),
+                                    label: Text(
+                                      "Reconfig node",
+                                      softWrap: true, // Enable text wrapping
+                                      textAlign: TextAlign
+                                          .center, // Center align the text
+                                    ),
+                                    style: ButtonStyle(
+                                      overlayColor: MaterialStateProperty
+                                          .resolveWith<Color?>(
+                                        (Set<MaterialState> states) {
+                                          if (states.contains(
+                                              MaterialState.pressed)) {
+                                            return Colors.grey.withOpacity(
+                                                0.5); // Color when pressed
+                                          }
+                                          return null; // Use default color when not pressed
+                                        },
+                                      ),
+                                      foregroundColor:
+                                          MaterialStateProperty.all(
+                                              Colors.black),
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ),
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              networkCheck ? checkInternet() : null;
-                              // if (isConnected) {
-                              // networkCheck
-                              //     ?
-                              fetchNodeData().then((value) {
-                                if (nodeData['data']['mode_key'] == 5) {
-                                  sendMessage(
-                                      generateJsonString(containerDataList, 6));
-                                }
-                              });
-                              // : ScaffoldMessenger.of(context)
-                              //     .showSnackBar(const SnackBar(
-                              //     content: Text("Network check if off"),
-                              //     behavior: SnackBarBehavior.floating,
-                              //     duration: Duration(seconds: 2),
-                              //   ));
-                              // } else {
-                              //   ScaffoldMessenger.of(context)
-                              //       .showSnackBar(SnackBar(
-                              //     content:
-                              //         Text("You are not connected to internet"),
-                              //     behavior: SnackBarBehavior.floating,
-                              //     duration: Duration(seconds: 2),
-                              //   ));
-                              // }
-                            },
-                            icon: Icon(Icons.refresh),
-                            label: Text(
-                              "Reconfig node",
-                              softWrap: true, // Enable text wrapping
-                              textAlign:
-                                  TextAlign.center, // Center align the text
-                            ),
-                            style: ButtonStyle(
-                              shadowColor:
-                                  MaterialStateProperty.all(Colors.transparent),
-                              backgroundColor:
-                                  MaterialStateProperty.all(Colors.transparent),
-                              foregroundColor:
-                                  MaterialStateProperty.all(Colors.black),
                             ),
                           ),
                         ],
@@ -840,8 +840,9 @@ class _DashboardState extends State<Dashboard> {
                           padding: const EdgeInsets.only(
                               left: 15.0, right: 15, top: 20, bottom: 10),
                           child: Container(
-                            height: MediaQuery.of(context).size.height *
-                                0.5, // Adjust height as needed
+                            height: MediaQuery.of(context).size.height < 700
+                                ? MediaQuery.of(context).size.height * 0.45
+                                : MediaQuery.of(context).size.height * 0.5,
                             child: ListView.builder(
                               shrinkWrap:
                                   true, // Ensure ListView occupies only the space it needs
@@ -928,9 +929,13 @@ class _DashboardState extends State<Dashboard> {
                                 EdgeInsets.all(12)), // Adjust padding as needed
                           ),
                         ),
+                        MediaQuery.of(context).size.height < 800
+                            ? SizedBox(width: 10)
+                            : SizedBox(),
                         ElevatedButton.icon(
                           onPressed: () async {
                             if (connection != null && connection!.isConnected) {
+                              // connect();
                               sendMessage(
                                       generateJsonString(containerDataList, 5))
                                   .then((value) {
@@ -944,7 +949,11 @@ class _DashboardState extends State<Dashboard> {
                                           Text("Data Uploaded successfully")),
                                 ));
                               });
-                              updateAll();
+                              updateAll().then((value) {
+                                setState(() {
+                                  isUploaded = true;
+                                });
+                              });
                               print("Parameters sent successfully");
                             } else {
                               await connectAndSendMessage(context);
@@ -1064,7 +1073,11 @@ class ContainerWidget extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 10.0, left: 10, right: 10),
           child: Container(
-            width: 230,
+            width: MediaQuery.of(context).size.height < 800
+                ? 200
+                : MediaQuery.of(context).size.height < 900
+                    ? 230
+                    : 250,
             decoration: BoxDecoration(
               color: primary.withOpacity(0.05),
               borderRadius: BorderRadius.circular(10),

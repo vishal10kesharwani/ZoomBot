@@ -178,7 +178,7 @@ class ContainerWidget extends StatelessWidget {
       child: ListTile(
         onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) {
-            return AllDeviceSchedule(device: schedules[index].device_name);
+            return AllDeviceSchedule(device: bondedDevices[index].name!);
           }));
         },
         leading: Icon(Icons.devices),

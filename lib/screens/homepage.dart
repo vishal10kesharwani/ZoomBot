@@ -6,6 +6,7 @@ import 'package:bluetooth/screens/all_schedules.dart';
 import 'package:bluetooth/utils/string_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -16,6 +17,8 @@ import 'bluetooth_device_entry.dart';
 import 'dashboard.dart';
 
 List<Schedule> schedules = [];
+
+var response;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -56,6 +59,9 @@ class _HomePageState extends State<HomePage> {
             .where((device) => device.name?.startsWith(deviceName) ?? false)
             .toList();
         bondedDevices = devices;
+        if (bondedDevices.length > 0) {
+          isDiscovering = false;
+        }
         print("Home: Bonded Devices:${bondedDevices.length}");
       });
     } catch (ex) {
@@ -106,6 +112,7 @@ class _HomePageState extends State<HomePage> {
     await listener.cancel();
   }
 
+  var serviceEnabled;
   Future<void> checkInternet() async {
     await execute(InternetConnectionChecker());
 
@@ -124,6 +131,9 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     checkInternet();
+    checkGps();
+    // checkLocationPermission();
+
     FlutterBluetoothSerial.instance.state.then((state) {
       setState(() {
         _getBondedDevices();
@@ -169,21 +179,113 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> checkLocationPermission() async {
-    PermissionStatus status = await Permission.location.status;
-    if (status != PermissionStatus.granted) {
-      // Permission not granted, request it
-      PermissionStatus permissionStatus = await Permission.location.request();
-      if (permissionStatus == PermissionStatus.granted) {
-        // Permission granted, enable location services
-        // You can proceed with enabling location services here
-      } else {
-        // Permission denied by the user
-        // You can show a message or prompt the user to enable permissions
+  Future<void> checkGps() async {
+    setState(() {
+      isDiscovering = false;
+    });
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        print('Location permissions are denied');
+      } else if (permission == LocationPermission.deniedForever) {
+        print("Location permissions are permanently denied");
       }
     } else {
-      // Location permission already granted, enable location services
-      // You can proceed with enabling location services here
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // Location services are disabled, show a message to enable them
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text("Location Services Disabled"),
+            content: Text("Please enable location services to continue."),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  bool serviceRequested =
+                      await Geolocator.openLocationSettings();
+                  Navigator.of(context).pop();
+                  if (!serviceRequested) {}
+                },
+                child: Text("Enable"),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> checkLocationPermission() async {
+    PermissionStatus status = await Permission.locationAlways.status;
+    if (status != PermissionStatus.granted) {
+      // Permission not granted, request it
+      PermissionStatus permissionStatus =
+          await Permission.locationAlways.request();
+      if (permissionStatus == PermissionStatus.granted) {
+        // Permission granted, check if location services are enabled
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          // Location services are disabled, show a message to enable them
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text("Location Services Disabled"),
+              content: Text("Please enable location services to continue."),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    Navigator.of(context).pop(); // Close the dialog
+                    // Request to enable location services
+                    bool serviceRequested =
+                        await Geolocator.openLocationSettings();
+                    if (!serviceRequested) {
+                      // Unable to open location settings
+                      // You can show an error message or handle it accordingly
+                    }
+                  },
+                  child: Text("Enable"),
+                ),
+              ],
+            ),
+          );
+        } else {
+          // Location services are enabled, you can proceed
+          // with any necessary actions here
+        }
+      }
+    } else {
+      // Location permission already granted, check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // Location services are disabled, show a message to enable them
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text("Location Services Disabled"),
+            content: Text("Please enable location services to continue."),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop(); // Close the dialog
+                  // Request to enable location services
+                  bool serviceRequested =
+                      await Geolocator.openLocationSettings();
+                  if (!serviceRequested) {
+                    // Unable to open location settings
+                    // You can show an error message or handle it accordingly
+                  }
+                },
+                child: Text("Enable"),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // Location services are enabled, you can proceed
+        // with any necessary actions here
+      }
     }
   }
 
@@ -191,13 +293,14 @@ class _HomePageState extends State<HomePage> {
     if (_bluetoothState != BluetoothState.STATE_ON) {
       return;
     }
-    await checkLocationPermission();
+    await checkGps();
+    // await checkLocationPermission();
 
     await requestBluetoothConnectPermission();
 
     var status = await Permission.bluetoothScan.request();
     if (status == PermissionStatus.granted) {
-      await checkLocationPermission();
+      // await checkLocationPermission();
       setState(() {
         isDiscovering = true;
       });
@@ -252,11 +355,15 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> checkNodeStatus(var device, String address) async {
     try {
-      var headers = {'macid': address};
+      var headers = {'macid': address.toString()};
       var request = http.MultipartRequest('POST', Uri.parse(testapiNodeStatus));
       request.fields.addAll({'flags': '{"message":"Fetch node status"}'});
       request.headers.addAll(headers);
       http.StreamedResponse response = await request.send();
+      response.statusCode == 404
+          ? _showSnackBar(
+              "Node is not registered on server, please use another device")
+          : null;
       if (response.statusCode == 200) {
         print(await response);
         String responseBody = await response.stream.bytesToString();
@@ -288,31 +395,76 @@ class _HomePageState extends State<HomePage> {
                       address: address,
                     )))
             : _showSnackBar("Device connection error, please tap again");
-      } else if (response.statusCode == 404) {
+      } else {
         _showSnackBar(
             "Node is not registered on server, please use another device");
         setState(() {
           nodeStatus = null;
         });
-
-        // Navigator.of(context).push(MaterialPageRoute(
-        //     builder: (context) => Dashboard(
-        //           device: device,
-        //         )));
-      } else {
-        _showSnackBar("Something went wrong, please try again");
       }
     } on Exception catch (e) {
       // TODO
-      _showSnackBar(e.toString());
+      _showSnackBar(
+          "Check your internet connection or try again with another device");
     }
   }
 
-  void connect(BluetoothDevice device) async {
+  // Future<void> connect(BluetoothDevice device) async {
+  //   try {
+  //     // checkNodeStatus(device, "FC:B4:67:4E:C1:30");
+  //     // await checkNodeStatus(device, "00:00:13:00:3B:E3");
+  //     print('Connecting to Bluetooth: ${device.address}');
+  //     _showSnackBar("Please wait: ${device.name} is connecting to server");
+  //     connection = await BluetoothConnection.toAddress(device.address);
+  //     setState(() {
+  //       device.isConnected || device.isBonded
+  //           ? isConnected = true
+  //           : isConnected = false;
+  //     });
+  //
+  //     // Listen for responses after establishing the connection
+  //     await connection?.input?.listen((Uint8List data) {
+  //       if (data != null) {
+  //         setState(() async {
+  //           response = utf8.decode(data);
+  //           response = jsonDecode(response);
+  //           print("Home: MacId ${response}");
+  //           if (response != null) {
+  //             await checkNodeStatus(device, response['mac_id']);
+  //           } else {
+  //             _showSnackBar(
+  //                 "Node is not registered, please use another device");
+  //           }
+  //
+  //           // await checkNodeStatus(device, "00:00:13:00:3B:E3");
+  //         });
+  //       }
+  //       if (response == null) {
+  //         setState(() {
+  //           response = utf8.decode(data);
+  //         });
+  //       } else if (response != null) {
+  //         setState(() {
+  //           uploadResponse = utf8.decode(data);
+  //         });
+  //       }
+  //
+  //       print(
+  //           'Home: listenForResponse : response is $response   ${response.toString()}');
+  //     });
+  //   } catch (e) {
+  //     print('Error connecting to Bluetooth: $e');
+  //
+  //     _showSnackBar("Bluetooth connection error, please try again");
+  //   }
+  // }
+
+  Future<void> connect(BluetoothDevice device) async {
+    bool isFirstResponse = true; // Flag to track the first response
+
     try {
-      // checkNodeStatus(device, "FC:B4:67:4E:C1:30");
-      // await checkNodeStatus(device, "00:00:13:00:3B:E3");
       print('Connecting to Bluetooth: ${device.address}');
+      _showSnackBar("Please wait: ${device.name} is connecting to server");
       connection = await BluetoothConnection.toAddress(device.address);
       setState(() {
         device.isConnected || device.isBonded
@@ -328,24 +480,19 @@ class _HomePageState extends State<HomePage> {
             response = jsonDecode(response);
             print("Home: MacId ${response}");
             if (response != null) {
-              await checkNodeStatus(device, response['mac_id']);
+              // Call checkNodeStatus only if it's the first response
+              if (isFirstResponse) {
+                await checkNodeStatus(device, response['mac_id']);
+                isFirstResponse = false; // Update flag after first call
+              }
             } else {
-              _showSnackBar("Bluetooth connection error, please try again");
+              _showSnackBar(
+                  "Node is not registered, please use another device");
             }
 
-            // await checkNodeStatus(device, "00:00:13:00:3B:E3");
+            // Handle other response scenarios here
           });
         }
-        if (response == null) {
-          setState(() {
-            response = utf8.decode(data);
-          });
-        } else if (response != null) {
-          setState(() {
-            uploadResponse = utf8.decode(data);
-          });
-        }
-
         print(
             'Home: listenForResponse : response is $response   ${response.toString()}');
       });
@@ -374,31 +521,6 @@ class _HomePageState extends State<HomePage> {
               icon: Icon(Icons.devices_other),
             ),
           ),
-          buildMode == "Test"
-              ? Padding(
-                  padding: const EdgeInsets.only(right: 10.0),
-                  child: Transform.scale(
-                    scale: 0.8,
-                    child: Tooltip(
-                      message: 'Enable/Disable Network check',
-                      child: Switch(
-                        value: networkCheck,
-                        onChanged: (bool value) {
-                          setState(() {
-                            networkCheck = value;
-                            print(
-                                "Home: Network check: ${networkCheck.toString()}");
-                          });
-                        },
-                        activeColor: Colors.white,
-                        activeTrackColor: Colors.orange,
-                        inactiveThumbColor: Colors.black,
-                        inactiveTrackColor: primary,
-                      ),
-                    ),
-                  ),
-                )
-              : SizedBox(),
         ],
       ),
       body: SingleChildScrollView(
@@ -563,7 +685,15 @@ class _HomePageState extends State<HomePage> {
                                               duration: Duration(seconds: 2),
                                             ));
                                           }
-                                          connect(device);
+                                          connect(device).then((value) {
+                                            Future.delayed(Duration(seconds: 5),
+                                                () {
+                                              if (response == null) {
+                                                _showSnackBar(
+                                                    "Node is not registered, please use another device");
+                                              }
+                                            });
+                                          });
                                         },
                                         onLongPress: () async {
                                           try {
@@ -680,7 +810,16 @@ class _HomePageState extends State<HomePage> {
                                               duration: Duration(seconds: 2),
                                             ));
                                           }
-                                          connect(bondedDevices[index]);
+                                          connect(bondedDevices[index])
+                                              .then((value) {
+                                            Future.delayed(Duration(seconds: 5),
+                                                () {
+                                              if (response == null) {
+                                                _showSnackBar(
+                                                    "Node is not registered, please use another device");
+                                              }
+                                            });
+                                          });
                                         },
                                         onLongPress: () async {
                                           try {

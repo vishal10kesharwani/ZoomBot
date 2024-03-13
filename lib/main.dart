@@ -2,6 +2,9 @@ import 'package:bluetooth/screens/homepage.dart';
 import 'package:bluetooth/screens/splash_screen.dart';
 import 'package:bluetooth/utils/string_constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+
+BluetoothDevice device = BluetoothDevice(address: '');
 
 void main() => runApp(new MyApp());
 final routes = {
