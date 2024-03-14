@@ -15,6 +15,7 @@ List<ContainerData> containerDataList = [];
 
 String userName = '';
 List<String> receivedUserNames = [];
+List<Schedule> uniqueSchedules = [];
 
 List<Schedule> schedules = [];
 
@@ -29,13 +30,44 @@ class AllDeviceSchedule extends StatefulWidget {
 class _AllDeviceScheduleState extends State<AllDeviceSchedule> {
   void getSchedules() async {
     Services service = Services();
+
     await service.getAllSchedule().then((value) {
+      uniqueSchedules.clear();
       setState(() {
         schedules = value;
         print("Records:$schedules");
+        removeDuplicateRecords();
       });
     });
     setState(() {});
+  }
+
+  void getUniqueSchedules() async {
+    setState(() {
+      uniqueSchedules = uniqueSchedules;
+    });
+  }
+
+  void removeDuplicateRecords() {
+    for (int i = 0; i < schedules.length; i++) {
+      bool isDuplicate = false;
+      for (int j = i + 1; j < schedules.length; j++) {
+        if (schedules[i].time == schedules[j].time &&
+            schedules[i].action == schedules[j].action &&
+            schedules[i].day == schedules[j].day) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (!isDuplicate) {
+        uniqueSchedules
+            .add(schedules[i]); // Add unique schedule to the new list
+      }
+    }
+    setState(() {
+      schedules =
+          uniqueSchedules; // Update schedules with the new list of unique schedules
+    });
   }
 
   @override
@@ -126,9 +158,9 @@ class _AllDeviceScheduleState extends State<AllDeviceSchedule> {
                                 child: ListView.builder(
                                   shrinkWrap:
                                       true, // Ensure ListView occupies only the space it needs
-                                  itemCount: schedules.length,
+                                  itemCount: uniqueSchedules.length,
                                   itemBuilder: (context, index) {
-                                    final schedule = schedules[index];
+                                    final schedule = uniqueSchedules[index];
 
                                     return (schedule.status == '1' &&
                                             schedule.device_name ==
@@ -184,6 +216,7 @@ class ContainerWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 10.0, left: 10, right: 10),
@@ -203,7 +236,7 @@ class ContainerWidget extends StatelessWidget {
                     day,
                     textAlign: TextAlign.left,
                     style: TextStyle(
-                      color: primary,
+                      color: (action == "true") ? Colors.green : Colors.red,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -223,17 +256,7 @@ class ContainerWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Flexible(
-                    child: Text(
-                      "${schedules[index].pin_no}",
-                      textAlign: TextAlign.left,
-                      style: TextStyle(
-                        color: (action == "true") ? Colors.green : Colors.red,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+
                 ],
               ),
             ),

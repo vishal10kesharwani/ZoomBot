@@ -148,11 +148,11 @@ class _DashboardState extends State<Dashboard> {
     setState(() {});
   }
 
-  // @override
-  // void dispose() {
-  //   connection?.cancel();
-  //   super.dispose();
-  // }
+  @override
+  void dispose() {
+    connection?.cancel();
+    super.dispose();
+  }
 
   Future<void> connect() async {
     try {
@@ -761,61 +761,70 @@ class _DashboardState extends State<Dashboard> {
                                     color:
                                         isUploaded ? Colors.green : Colors.red,
                                   ),
-                                  VerticalDivider(
-                                    color: Colors.black,
-                                  ),
-                                  TextButton.icon(
-                                    onPressed: () {
-                                      networkCheck ? checkInternet() : null;
-                                      // if (isConnected) {
-                                      // networkCheck
-                                      //     ?
-                                      fetchNodeData().then((value) {
-                                        if (nodeData['data']['mode_key'] == 5) {
-                                          sendMessage(generateJsonString(
-                                              containerDataList, 6));
-                                        }
-                                      });
-                                      // : ScaffoldMessenger.of(context)
-                                      //     .showSnackBar(const SnackBar(
-                                      //     content: Text("Network check if off"),
-                                      //     behavior: SnackBarBehavior.floating,
-                                      //     duration: Duration(seconds: 2),
-                                      //   ));
-                                      // } else {
-                                      //   ScaffoldMessenger.of(context)
-                                      //       .showSnackBar(SnackBar(
-                                      //     content:
-                                      //         Text("You are not connected to internet"),
-                                      //     behavior: SnackBarBehavior.floating,
-                                      //     duration: Duration(seconds: 2),
-                                      //   ));
-                                      // }
-                                    },
-                                    icon: Icon(Icons.refresh),
-                                    label: Text(
-                                      "Reconfig node",
-                                      softWrap: true, // Enable text wrapping
-                                      textAlign: TextAlign
-                                          .center, // Center align the text
-                                    ),
-                                    style: ButtonStyle(
-                                      overlayColor: MaterialStateProperty
-                                          .resolveWith<Color?>(
-                                        (Set<MaterialState> states) {
-                                          if (states.contains(
-                                              MaterialState.pressed)) {
-                                            return Colors.grey.withOpacity(
-                                                0.5); // Color when pressed
-                                          }
-                                          return null; // Use default color when not pressed
-                                        },
-                                      ),
-                                      foregroundColor:
-                                          MaterialStateProperty.all(
-                                              Colors.black),
-                                    ),
-                                  ),
+                                  buildMode == "Test"
+                                      ? VerticalDivider(
+                                          color: Colors.black,
+                                        )
+                                      : SizedBox(),
+                                  buildMode == "Test"
+                                      ? TextButton.icon(
+                                          onPressed: () {
+                                            networkCheck
+                                                ? checkInternet()
+                                                : null;
+                                            // if (isConnected) {
+                                            // networkCheck
+                                            //     ?
+                                            fetchNodeData().then((value) {
+                                              if (nodeData['data']
+                                                      ['mode_key'] ==
+                                                  5) {
+                                                sendMessage(generateJsonString(
+                                                    containerDataList, 6));
+                                              }
+                                            });
+                                            // : ScaffoldMessenger.of(context)
+                                            //     .showSnackBar(const SnackBar(
+                                            //     content: Text("Network check if off"),
+                                            //     behavior: SnackBarBehavior.floating,
+                                            //     duration: Duration(seconds: 2),
+                                            //   ));
+                                            // } else {
+                                            //   ScaffoldMessenger.of(context)
+                                            //       .showSnackBar(SnackBar(
+                                            //     content:
+                                            //         Text("You are not connected to internet"),
+                                            //     behavior: SnackBarBehavior.floating,
+                                            //     duration: Duration(seconds: 2),
+                                            //   ));
+                                            // }
+                                          },
+                                          icon: Icon(Icons.refresh),
+                                          label: Text(
+                                            "Reconfig node",
+                                            softWrap:
+                                                true, // Enable text wrapping
+                                            textAlign: TextAlign
+                                                .center, // Center align the text
+                                          ),
+                                          style: ButtonStyle(
+                                            overlayColor: MaterialStateProperty
+                                                .resolveWith<Color?>(
+                                              (Set<MaterialState> states) {
+                                                if (states.contains(
+                                                    MaterialState.pressed)) {
+                                                  return Colors.grey.withOpacity(
+                                                      0.5); // Color when pressed
+                                                }
+                                                return null; // Use default color when not pressed
+                                              },
+                                            ),
+                                            foregroundColor:
+                                                MaterialStateProperty.all(
+                                                    Colors.black),
+                                          ),
+                                        )
+                                      : SizedBox(),
                                 ],
                               ),
                             ),
