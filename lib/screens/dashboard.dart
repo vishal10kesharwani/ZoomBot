@@ -23,6 +23,7 @@ var isConnected = true;
 var nodeStatus, nodeData;
 var isSchedule = true;
 var isNodeOnline = true;
+bool manual = false;
 
 enum SingingCharacter { D1, D2 }
 
@@ -466,8 +467,30 @@ class _DashboardState extends State<Dashboard> {
         'config': mode_key == 5 ? config : nodeData['data']['config'],
       }
     };
+
     print(jsonEncode(jsonObject));
     return json.encode(jsonObject);
+  }
+
+  String generateManualJsonString(int mode_key) {
+    var action;
+    if (mode_key == 5) {
+      action = "update_schedule";
+    } else if (mode_key == 6) {
+      action = "update_config_file";
+    } else if (mode_key == 7) {
+      action = "update_manual";
+    }
+
+    Map<String, dynamic> manualJsonObject = {
+      'action': action,
+      'config_file': {
+        'P1': manual ? 'ON' : 'OFF', // Adjust as needed
+        'P2': manual ? 'ON' : 'OFF', // Adjust as needed
+      }
+    };
+    print(jsonEncode(manualJsonObject));
+    return json.encode(manualJsonObject);
   }
 
   int calculateEpochFromDateAndTime(
@@ -496,7 +519,7 @@ class _DashboardState extends State<Dashboard> {
   Icon syncIcon = isUploaded
       ? Icon(Icons.sync,
           color: Colors.green) // Change to green color and synced icon
-      : Icon(Icons.sync_disabled, color: Colors.red);
+      : const Icon(Icons.sync_disabled, color: Colors.red);
 
   Future<void> connectAndSendMessage(BuildContext context) async {
     // Maximum number of retries
@@ -575,6 +598,43 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
+  Future<void> connectAndSendManual(BuildContext context) async {
+    // Maximum number of retries
+    const int maxRetries = 2;
+    int retryCount = 0;
+
+    while (retryCount < maxRetries) {
+      try {
+        await connect(); // Attempt connection
+        await sendMessage(generateManualJsonString(7)); // Send message
+        if (uploadResponse != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+              behavior: SnackBarBehavior.floating,
+              content: Center(child: Text("Manual Update Success")),
+            ),
+          );
+          updateAll();
+        }
+        // Update all data
+        return; // Exit function if successful
+      } catch (error) {
+        print('Connection failed. Retrying... Attempt $retryCount');
+        retryCount++;
+      }
+    }
+
+    // Show error message if maximum retries reached
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        margin: EdgeInsets.only(left: 10, right: 10, bottom: 5),
+        behavior: SnackBarBehavior.floating,
+        content: Center(child: Text("Failed to connect and update manual")),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     SingingCharacter? _character = SingingCharacter.D1;
@@ -589,8 +649,8 @@ class _DashboardState extends State<Dashboard> {
             Navigator.pop(context);
           },
         ),
-        title: Padding(
-          padding: const EdgeInsets.only(top: 20.0, bottom: 10),
+        title: const Padding(
+          padding: EdgeInsets.only(top: 20.0, bottom: 10),
           child: Text(
             "Scheduled charts",
             textAlign: TextAlign.start,
@@ -613,7 +673,7 @@ class _DashboardState extends State<Dashboard> {
                       const EdgeInsets.only(right: 20.0, top: 20, bottom: 10),
                   child: Text(
                     "$formattedTime",
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.black,
                       fontSize: 18,
                     ),
@@ -676,10 +736,10 @@ class _DashboardState extends State<Dashboard> {
                       color: Colors.white,
                     ),
                   ),
-                  SizedBox(
+                  const SizedBox(
                     width: 10,
                   ),
-                  Text(
+                  const Text(
                     "Add Schedule",
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                   ),
@@ -701,7 +761,7 @@ class _DashboardState extends State<Dashboard> {
                   padding: const EdgeInsets.only(left: 10.0, right: 10),
                   child: Column(
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         height: 20,
                       ),
                       Row(
@@ -731,7 +791,7 @@ class _DashboardState extends State<Dashboard> {
                                         ? Colors.green
                                         : Colors.red,
                                   ),
-                                  SizedBox(
+                                  const SizedBox(
                                     width: 5,
                                   ),
                                   GestureDetector(
@@ -747,7 +807,7 @@ class _DashboardState extends State<Dashboard> {
                                     },
                                     child: Text(
                                       "${(widget.device.name?.length)! > 5 ? widget.device.name?.substring(0, 6) : widget.device.name} ",
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Colors.black,
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
@@ -762,12 +822,12 @@ class _DashboardState extends State<Dashboard> {
                                         isUploaded ? Colors.green : Colors.red,
                                   ),
                                   buildMode == "Test"
-                                      ? VerticalDivider(
+                                      ? const VerticalDivider(
                                           color: Colors.black,
                                         )
                                       : SizedBox(),
                                   buildMode == "Test"
-                                      ? TextButton.icon(
+                                      ? IconButton(
                                           onPressed: () {
                                             networkCheck
                                                 ? checkInternet()
@@ -800,13 +860,6 @@ class _DashboardState extends State<Dashboard> {
                                             // }
                                           },
                                           icon: Icon(Icons.refresh),
-                                          label: Text(
-                                            "Reconfig node",
-                                            softWrap:
-                                                true, // Enable text wrapping
-                                            textAlign: TextAlign
-                                                .center, // Center align the text
-                                          ),
                                           style: ButtonStyle(
                                             overlayColor: MaterialStateProperty
                                                 .resolveWith<Color?>(
@@ -825,6 +878,89 @@ class _DashboardState extends State<Dashboard> {
                                           ),
                                         )
                                       : SizedBox(),
+                                  const VerticalDivider(
+                                    color: Colors.black,
+                                  ),
+                                  Transform.scale(
+                                    scale: 1.0,
+                                    child: Switch(
+                                      value: manual,
+                                      onChanged: (bool value) async {
+                                        setState(() {
+                                          manual = value;
+                                        });
+                                        if (connection != null &&
+                                            connection!.isConnected) {
+                                          // connect();
+                                          sendMessage(
+                                                  generateManualJsonString(7))
+                                              .then((value) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(const SnackBar(
+                                              margin: EdgeInsets.only(
+                                                  left: 10,
+                                                  right: 10,
+                                                  bottom: 5),
+                                              behavior:
+                                                  SnackBarBehavior.floating,
+                                              content: Center(
+                                                  child: Text(
+                                                      "Manual Update Success")),
+                                            ));
+                                          });
+                                          updateAll().then((value) {
+                                            setState(() {
+                                              isUploaded = true;
+                                            });
+                                          });
+                                          print(
+                                              "Dashboard: Manual update success");
+                                        } else {
+                                          await connectAndSendManual(context);
+
+                                          print(
+                                              "Bluetooth connection is not established.");
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(const SnackBar(
+                                                  margin: EdgeInsets.only(
+                                                      left: 10,
+                                                      right: 10,
+                                                      bottom: 5),
+                                                  behavior:
+                                                      SnackBarBehavior.floating,
+                                                  content: Center(
+                                                      child: Text(
+                                                          "Bluetooth connection is not established."))));
+                                        }
+                                      },
+                                      activeColor: Colors.white,
+                                      activeTrackColor: Colors.deepOrange,
+                                      inactiveThumbColor: Colors.black,
+                                      inactiveTrackColor: primary,
+                                    ),
+                                  ),
+                                  SizedBox(width: 5),
+                                  manual
+                                      ? const Tooltip(
+                                          showDuration:
+                                              Duration(milliseconds: 200),
+                                          message: 'On',
+                                          child: Text(
+                                            "ON",
+                                            style: TextStyle(
+                                                color: Colors.green,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        )
+                                      : const Tooltip(
+                                          message: 'Off',
+                                          child: Text(
+                                            "OFF",
+                                            style: TextStyle(
+                                                color: Colors.red,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
                                 ],
                               ),
                             ),

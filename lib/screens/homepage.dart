@@ -354,6 +354,12 @@ class _HomePageState extends State<HomePage> {
   var nodeStatus;
 
   Future<void> checkNodeStatus(var device, String address) async {
+    Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => Dashboard(
+              device: device,
+              connection: connection,
+              address: address,
+            )));
     try {
       var headers = {'macid': address.toString()};
       var request = http.MultipartRequest('POST', Uri.parse(testapiNodeStatus));
@@ -471,6 +477,8 @@ class _HomePageState extends State<HomePage> {
             ? isConnected = true
             : isConnected = false;
       });
+
+      await checkNodeStatus(device, response['mac_id']); //testing
 
       // Listen for responses after establishing the connection
       await connection?.input?.listen((Uint8List data) {
